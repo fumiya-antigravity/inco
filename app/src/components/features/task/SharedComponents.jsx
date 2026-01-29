@@ -65,14 +65,18 @@ export const AssigneeSelector = ({ task, isDetailView = false }) => {
                         <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold border border-white dark:border-zinc-800 ring-1 ring-slate-100 dark:ring-zinc-700">
                             {currentAssignee.charAt(0)}
                         </div>
-                        {isDetailView && <span className="text-sm font-medium">{currentAssignee}</span>}
+                        <span className={`font-medium ${isDetailView ? 'text-sm' : 'text-xs text-slate-600 dark:text-slate-400'}`}>
+                            {currentAssignee}
+                        </span>
                     </>
                 ) : (
                     <>
                         <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 border border-dashed border-slate-300 dark:border-zinc-700 flex items-center justify-center">
-                            <User size={14} />
+                            <User size={12} />
                         </div>
-                        {isDetailView && <span className="text-sm">未割当</span>}
+                        <span className={`${isDetailView ? 'text-sm' : 'text-xs text-slate-600 dark:text-slate-400'}`}>
+                            未割当
+                        </span>
                     </>
                 )}
             </button>
