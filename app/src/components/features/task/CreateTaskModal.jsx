@@ -1,0 +1,148 @@
+import React, { useState } from 'react';
+import { useApp } from '../../../context/AppContext';
+import Modal from '../../ui/Modal';
+import { ChevronDown, Calendar } from 'lucide-react';
+
+const CreateTaskModal = ({ isOpen, onClose }) => {
+    const { addTask, projects, sections } = useApp();
+
+    // Form State
+    const [title, setTitle] = useState('');
+    const [description, setDescription] = useState('');
+    const [projectId, setProjectId] = useState(projects[0]?.id || 1);
+    const [priority, setPriority] = useState('中');
+    const [dueDate, setDueDate] = useState('');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!title) return;
+
+        const currentProject = projects.find(p => p.id === parseInt(projectId));
+        const projectKey = currentProject?.key || 'TASK';
+
+        const newTask = {
+            id: Date.now(),
+            projectIds: [parseInt(projectId)],
+            sectionId: sections[0].id, // Default to first section (e.g., "未対応")
+            key: `${projectKey}-${Math.floor(Math.random() * 1000)}`, // Simple ID generation
+            title,
+            description,
+            assignees: [], // Default empty
+            status: sections[0].title,
+            completed: false,
+            priority,
+            type: 'タスク',
+            due: dueDate || '',
+            subtasks: [],
+            activities: [
+                { id: Date.now(), type: 'history', text: 'タスクを作成しました', timestamp: new Date() }
+            ]
+        };
+
+        addTask(newTask);
+
+        // Reset
+        setTitle('');
+        setDescription('');
+        setPriority('中');
+        setDueDate('');
+        onClose();
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="タスクを作成" maxWidth="max-w-xl">
+            <form onSubmit={handleSubmit} className="space-y-6">
+
+                {/* Title */}
+                <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full text-xl font-bold placeholder-slate-300 border-none outline-none bg-transparent"
+                    placeholder="タスク名を入力..."
+                    autoFocus
+                />
+
+                {/* Meta Controls */}
+                <div className="flex flex-wrap gap-4 text-sm">
+                    {/* Project Select */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">プロジェクト</label>
+                        <div className="relative">
+                            <select
+                                value={projectId}
+                                onChange={(e) => setProjectId(e.target.value)}
+                                className="appearance-none bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg pl-3 pr-8 py-2 font-medium focus:ring-2 focus:ring-emerald-500/20 outline-none dark:text-slate-200"
+                            >
+                                {projects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                            </select>
+                            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        </div>
+                    </div>
+
+                    {/* Priority Select */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">優先度</label>
+                        <div className="relative">
+                            <select
+                                value={priority}
+                                onChange={(e) => setPriority(e.target.value)}
+                                className="appearance-none bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg pl-3 pr-8 py-2 font-medium focus:ring-2 focus:ring-emerald-500/20 outline-none dark:text-slate-200"
+                            >
+                                <option value="高">高</option>
+                                <option value="中">中</option>
+                                <option value="低">低</option>
+                            </select>
+                            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        </div>
+                    </div>
+
+                    {/* Due Date */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">期限日</label>
+                        <div className="relative">
+                            <input
+                                type="date"
+                                value={dueDate}
+                                onChange={(e) => setDueDate(e.target.value)}
+                                className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-[7px] font-medium focus:ring-2 focus:ring-emerald-500/20 outline-none dark:text-slate-200"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                    <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="w-full h-32 p-3 bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-800 rounded-xl resize-none focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-sm dark:text-slate-200"
+                        placeholder="詳細説明..."
+                    />
+                </div>
+
+                {/* Footer */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-zinc-800">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                    >
+                        キャンセル
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={!title}
+                        className="px-6 py-2 text-sm font-bold bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-emerald-500/20"
+                    >
+                        タスクを作成
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
+export default CreateTaskModal;
