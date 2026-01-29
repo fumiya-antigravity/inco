@@ -245,10 +245,12 @@ const ListView = () => {
                                                             </div>
                                                         ) : (
                                                             <span
-                                                                // Move edit trigger to the text span only
+                                                                // Edit trigger
                                                                 onClick={(e) => {
-                                                                    e.stopPropagation(); // Stop bubbling to TR (Open Detail)
-                                                                    setEditingTaskId(task.id); // Start Edit
+                                                                    // Do NOT stop propagation.
+                                                                    // We want to allow the row click handler to fire (switching the Detail Panel),
+                                                                    // while ALSO triggering inline editing mode.
+                                                                    setEditingTaskId(task.id);
                                                                 }}
                                                                 className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors block w-fit max-w-full truncate cursor-text hover:underline decoration-dashed underline-offset-4 decoration-slate-300"
                                                             >
