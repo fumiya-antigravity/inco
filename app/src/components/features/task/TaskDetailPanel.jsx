@@ -30,6 +30,7 @@ const TaskDetailPanel = () => {
 
     // Moved hooks before early return to comply with Rules of Hooks
     const panelRef = React.useRef(null);
+    const titleRef = React.useRef(null); // Add ref for title field
 
     React.useEffect(() => {
         const handleClickOutside = (event) => {
@@ -49,6 +50,13 @@ const TaskDetailPanel = () => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [searchParams]);
+
+    // Auto-focus on title field for new tasks
+    React.useEffect(() => {
+        if (selectedTask && !selectedTask.title && titleRef.current) {
+            titleRef.current.focus();
+        }
+    }, [selectedTask?.id]);
 
     if (!selectedTask) return null;
 
@@ -239,6 +247,7 @@ const TaskDetailPanel = () => {
                     {/* Title Input */}
                     <div className="mb-8 group">
                         <textarea
+                            ref={titleRef}
                             value={selectedTask.title}
                             onChange={(e) => updateTask(selectedTask.id, 'title', e.target.value)}
                             className="w-full text-2xl md:text-3xl font-bold text-slate-800 dark:text-slate-100 bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 rounded-lg px-2 py-1 -ml-2 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none resize-none placeholder-slate-300 transition-all leading-tight"
@@ -251,8 +260,8 @@ const TaskDetailPanel = () => {
                         />
                     </div>
 
-                    {/* Properties Grid - Reduced gap-y */}
-                    <div className="grid grid-cols-[100px_1fr] md:grid-cols-[120px_1fr] gap-y-2 gap-x-4 mb-12 text-sm items-center">
+                    {/* Properties Grid - Center aligned */}
+                    <div className="grid grid-cols-[auto_1fr] gap-y-3 gap-x-6 mb-12 text-sm">
 
                         {/* Assignee (Multiple) */}
                         <DetailRow

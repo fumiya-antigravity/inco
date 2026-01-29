@@ -98,6 +98,10 @@ export const AppProvider = ({ children }) => {
             section_id: newTask.sectionId ? newTask.sectionId.toString() : null,
             key: 'Generating...', // Placeholder
             due_date: newTask.due || null,
+            // Preserve UI string values for status, priority, type
+            status: newTask.status || '未対応',
+            priority: newTask.priority || '未選択',
+            type: newTask.type || '未選択',
             // Ensure other fields are present for UI
             activities: [],
             created_at: new Date().toISOString()
@@ -299,12 +303,23 @@ export const AppProvider = ({ children }) => {
     // Derived tasks with compatibility mapping
     const currentProjectTasks = tasks
         .filter(t => t.project_id === activeProjectId && !t.parent_id)
-        .map(t => ({
-            ...t,
-            projectIds: [t.project_id], // Map back to array
-            sectionId: t.section_id || sections[0].id, // Map snake_case to camelCase
-            due: t.due_date, // Map due_date to due
-        }));
+        .map(t => {
+            // Map IDs to names for UI display
+            const status = taskStatuses.find(s => s.id === t.status_id);
+            const priority = taskPriorities.find(p => p.id === t.priority_id);
+            const type = taskTypes.find(ty => ty.id === t.type_id);
+
+            return {
+                ...t,
+                projectIds: [t.project_id], // Map back to array
+                sectionId: t.section_id || sections[0].id, // Map snake_case to camelCase
+                due: t.due_date, // Map due_date to due
+                // Add UI string fields
+                status: status?.name || '未対応',
+                priority: priority?.name || '未選択',
+                type: type?.name || '未選択',
+            };
+        });
 
     // Self-healing: Seed default statuses if missing for active project
     useEffect(() => {

@@ -11,8 +11,8 @@ export const DetailRow = ({ icon: Icon, label, hasValue, onClear, children, onCl
         </div>
         <div
             className={`
-          flex items-center gap-2 group cursor-pointer 
-          min-h-[36px] px-3 py-1.5 rounded-lg transition-all w-fit relative border-2 border-transparent
+          flex items-center justify-center gap-2 group cursor-pointer 
+          min-h-[36px] px-3 py-1.5 rounded-lg transition-all relative border-2 border-transparent
           ${hasValue
                     ? 'bg-slate-100/80 dark:bg-zinc-800 hover:bg-slate-200/80 dark:hover:bg-zinc-700'
                     : 'bg-transparent hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 border-dashed hover:border-slate-300'
@@ -47,7 +47,7 @@ export const DetailRow = ({ icon: Icon, label, hasValue, onClear, children, onCl
             )}
 
             {!hasValue && (
-                <ChevronDown size={14} className="text-slate-400 opacity-0 group-hover:opacity-100" />
+                <ChevronDown size={14} className="text-slate-400 opacity-0 group-hover:opacity-100 ml-auto" />
             )}
         </div>
     </>

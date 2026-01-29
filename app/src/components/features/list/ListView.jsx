@@ -8,12 +8,12 @@ import {
 } from '../task/SharedComponents';
 import { useSearchParams } from 'react-router-dom';
 
-const SortableHeader = ({ label, sortKey, width, currentSortKey, sortOrder, onSort }) => (
+const SortableHeader = ({ label, sortKey, width, currentSortKey, sortOrder, onSort, centered = false }) => (
     <th
         className={`p-4 font-bold text-slate-500 dark:text-slate-400 cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors ${width}`}
         onClick={() => onSort(sortKey)}
     >
-        <div className="flex items-center gap-1">
+        <div className={`flex items-center gap-1 ${centered ? 'justify-center' : ''}`}>
             {label}
             {currentSortKey === sortKey && (
                 sortOrder === 'asc' ? <ChevronUp size={14} className="text-emerald-500" /> : <ChevronDown size={14} className="text-emerald-500" />
@@ -27,15 +27,16 @@ const ListView = () => {
         sections, currentProjectTasks, updateTask, addTask, activeProjectId, toggleTaskCompletion
     } = useApp();
     const [searchParams, setSearchParams] = useSearchParams();
+    const selectedTaskId = searchParams.get('task') ? parseInt(searchParams.get('task')) : null;
 
-    const [sortKey, setSortKey] = useState('key');
-    const [sortOrder, setSortOrder] = useState('desc');
-
-    // Creating state
-    const [creatingTaskId, setCreatingTaskId] = useState(null);
-    const [editingTaskId, setEditingTaskId] = useState(null);
     const [draggedTaskId, setDraggedTaskId] = useState(null);
     const [dragOverSectionId, setDragOverSectionId] = useState(null);
+    const [creatingTaskId, setCreatingTaskId] = useState(null);
+    const [editingTaskId, setEditingTaskId] = useState(null);
+
+    // Default sort by created_at descending (newest first)
+    const [sortKey, setSortKey] = useState('created_at');
+    const [sortOrder, setSortOrder] = useState('desc');
 
     const handleSort = (key) => {
         if (sortKey === key) {
@@ -48,12 +49,33 @@ const ListView = () => {
 
     const sortedTasks = useMemo(() => {
         return [...currentProjectTasks].sort((a, b) => {
+            // First, sort by section to keep sections together
+            if (a.sectionId !== b.sectionId) {
+                return 0; // Let sections maintain their order
+            }
+
+            // Within the same section, always prioritize created_at for newest first
+            // unless user explicitly sorts by another field
+            if (sortKey === 'created_at') {
+                const aCreated = new Date(a.created_at || 0).getTime();
+                const bCreated = new Date(b.created_at || 0).getTime();
+                return sortOrder === 'asc' ? aCreated - bCreated : bCreated - aCreated;
+            }
+
+            // For other sort keys, use the selected field
             let aVal = a[sortKey];
             let bVal = b[sortKey];
 
             // Handle array comparison (e.g., assignees)
             if (Array.isArray(aVal)) aVal = aVal[0] || '';
             if (Array.isArray(bVal)) bVal = bVal[0] || '';
+
+            // If values are equal, use created_at as secondary sort (newest first)
+            if (aVal === bVal) {
+                const aCreated = new Date(a.created_at || 0).getTime();
+                const bCreated = new Date(b.created_at || 0).getTime();
+                return bCreated - aCreated; // Descending (newest first)
+            }
 
             if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
             if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
@@ -62,7 +84,7 @@ const ListView = () => {
     }, [currentProjectTasks, sortKey, sortOrder]);
 
     // Inline Create Handlers (Duplicated from Board for now, ideal to extract logic hook)
-    const startInlineCreate = (sectionId) => {
+    const startInlineCreate = async (sectionId) => {
         const tempId = Date.now();
         const newTask = {
             id: tempId,
@@ -71,16 +93,17 @@ const ListView = () => {
             key: 'NEW',
             title: '',
             assignees: [],
-            status: sections.find(s => s.id === sectionId)?.title || '未対応',
+            status: '未対応', // Fixed to always use '未対応'
             completed: false,
-            completed: false,
-            priority: '未選択', // CHANGED from '中'
-            type: '未選択', // CHANGED from 'タスク'
+            priority: '未選択',
+            type: '未選択',
             due: '',
             isTemp: true
         };
-        addTask(newTask);
-        setCreatingTaskId(tempId);
+        const createdTask = await addTask(newTask);
+        // Use the actual task ID if available, otherwise use tempId
+        const taskId = createdTask?.id || tempId;
+        setSearchParams({ task: taskId.toString() }); // Open detail panel
     };
 
     const handleTaskCreateUpdate = (id, title) => {
@@ -97,7 +120,6 @@ const ListView = () => {
         setSearchParams({ task: task.id.toString() });
     };
 
-    const selectedTaskId = parseInt(searchParams.get('task'));
     const hasAnyTasks = sortedTasks.length > 0;
 
     // DnD Handlers
@@ -123,17 +145,17 @@ const ListView = () => {
     return (
         <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-slate-200 dark:border-zinc-700 overflow-hidden flex-1 flex flex-col h-full animate-in fade-in duration-300 mx-4 mb-4 md:mx-6 md:mb-6">
             <div className="overflow-x-auto h-full">
-                <table className="w-full text-sm text-left whitespace-nowrap">
+                <table className="w-full text-sm text-left whitespace-nowrap table-fixed">
                     <thead className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 border-b border-slate-200 dark:border-zinc-700 shadow-sm">
                         <tr className="group">
                             <th className="p-4 w-12 border-b border-slate-200 dark:border-zinc-700"></th>
-                            <SortableHeader label="キー" sortKey="key" width="w-24" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
-                            <SortableHeader label="タスク名" sortKey="title" width="min-w-[300px]" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
-                            <SortableHeader label="担当者" sortKey="assignee" width="w-36" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
-                            <SortableHeader label="種別" sortKey="type" width="w-20" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
-                            <SortableHeader label="ステータス" sortKey="status" width="w-32" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
-                            <SortableHeader label="優先度" sortKey="priority" width="w-28" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
-                            <SortableHeader label="期限日" sortKey="due" width="w-32" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
+                            <SortableHeader label="キー" sortKey="key" width="w-20" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
+                            <SortableHeader label="タスク名" sortKey="title" width="w-[400px]" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
+                            <SortableHeader label="担当者" sortKey="assignee" width="w-40" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} centered={true} />
+                            <SortableHeader label="種別" sortKey="type" width="w-28" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} centered={true} />
+                            <SortableHeader label="ステータス" sortKey="status" width="w-36" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} centered={true} />
+                            <SortableHeader label="優先度" sortKey="priority" width="w-32" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} centered={true} />
+                            <SortableHeader label="期限日" sortKey="due" width="w-36" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} centered={true} />
                             <th className="p-4 w-12 border-b border-slate-200 dark:border-zinc-700"></th>
                         </tr>
                     </thead>
@@ -220,7 +242,7 @@ const ListView = () => {
                                                             }}
                                                         />
                                                     </td>
-                                                    <td className="p-4 font-mono text-slate-500 dark:text-slate-400 text-xs cursor-grab active:cursor-grabbing">{task.key}</td>
+                                                    <td className="p-4 font-mono text-slate-500 dark:text-slate-400 text-xs cursor-grab active:cursor-grabbing text-center truncate">{task.key}</td>
                                                     <td className="p-4">
                                                         {/* Removed onClick stopPropagation from TD to allow cell padding click to open detail */}
                                                         {editingTaskId === task.id ? (
@@ -252,10 +274,9 @@ const ListView = () => {
                                                             <span
                                                                 // Edit trigger
                                                                 onClick={(e) => {
-                                                                    // Do NOT stop propagation.
-                                                                    // We want to allow the row click handler to fire (switching the Detail Panel),
-                                                                    // while ALSO triggering inline editing mode.
+                                                                    // Enable inline editing mode
                                                                     setEditingTaskId(task.id);
+                                                                    // Also let the row click handler open the detail panel
                                                                 }}
                                                                 className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors block w-fit max-w-full truncate cursor-text hover:underline decoration-dashed underline-offset-4 decoration-slate-300"
                                                             >
@@ -263,20 +284,28 @@ const ListView = () => {
                                                             </span>
                                                         )}
                                                     </td>
-                                                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                                                    <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
                                                         <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
                                                             <AssigneeSelector task={task} />
                                                         </div>
                                                     </td>
-                                                    <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
                                                         <div className="flex justify-center">
                                                             <TypeSelector task={task} />
                                                         </div>
                                                     </td>
-                                                    <td className="p-4" onClick={(e) => e.stopPropagation()}><StatusSelector task={task} /></td>
-                                                    <td className="p-4" onClick={(e) => e.stopPropagation()}><PrioritySelector task={task} /></td>
                                                     <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                                                        <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs">
+                                                        <div className="flex justify-center">
+                                                            <StatusSelector task={task} />
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                                                        <div className="flex justify-center">
+                                                            <PrioritySelector task={task} />
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                                                        <div className="flex items-center justify-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs">
                                                             <Calendar size={14} className="opacity-70" /> {task.due}
                                                         </div>
                                                     </td>
