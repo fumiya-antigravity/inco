@@ -113,3 +113,6 @@ BEGIN
         CREATE POLICY "Allow public access for wikis" ON wikis FOR ALL USING (true) WITH CHECK (true);
     END IF;
 END $$;
+
+-- Force trigger migration workflow for verification
+
