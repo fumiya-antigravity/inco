@@ -13,4 +13,3 @@ shadow_port = 54320
 [studio]
 enabled = true
 port = 54323
-api_port = 54324
