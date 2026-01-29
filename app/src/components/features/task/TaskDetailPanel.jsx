@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import {
-    TypeSelector, PrioritySelector, StatusSelector, SectionSelector, CompletionCheckButton
+    TypeSelector, PrioritySelector, StatusSelector, SectionSelector, CompletionCheckButton, AssigneeSelector
 } from './SharedComponents';
 import {
     DetailRow, SubtaskItem, SubtaskInput, ActivityItem, CommentInput
@@ -261,22 +261,7 @@ const TaskDetailPanel = () => {
                             hasValue={hasAssignee}
                             onAdd={() => alert('未実装')}
                         >
-                            {hasAssignee ? (
-                                <div className="flex flex-wrap gap-2 py-1">
-                                    {assignees.map((assigneeName, index) => (
-                                        <div key={index} className="flex items-center gap-2 group/tag">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold border border-white dark:border-zinc-800 ring-1 ring-slate-100 dark:ring-zinc-700" title={assigneeName}>
-                                                    {assigneeName.charAt(0)}
-                                                </div>
-                                                <span>{assigneeName}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <span>未割当</span>
-                            )}
+                            <AssigneeSelector task={selectedTask} isDetailView={true} />
                         </DetailRow>
 
                         {/* Due Date */}

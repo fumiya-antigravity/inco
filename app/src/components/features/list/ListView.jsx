@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import {
-    TypeSelector, PrioritySelector, StatusSelector, InlineTaskCreator, CompletionCheckButton
+    TypeSelector, PrioritySelector, StatusSelector, InlineTaskCreator, CompletionCheckButton, AssigneeSelector
 } from '../task/SharedComponents';
 import { useSearchParams } from 'react-router-dom';
 
@@ -73,8 +73,9 @@ const ListView = () => {
             assignees: [],
             status: sections.find(s => s.id === sectionId)?.title || '未対応',
             completed: false,
-            priority: '中',
-            type: 'タスク',
+            completed: false,
+            priority: '未選択', // CHANGED from '中'
+            type: '未選択', // CHANGED from 'タスク'
             due: '',
             isTemp: true
         };
@@ -263,19 +264,8 @@ const ListView = () => {
                                                         )}
                                                     </td>
                                                     <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                                                        <div className="flex items-center gap-2">
-                                                            {task.assignees && task.assignees.length > 0 ? (
-                                                                <div className="w-6 h-6 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-[10px] font-bold border border-indigo-100 dark:border-indigo-900/50">
-                                                                    {task.assignees[0].charAt(0)}
-                                                                </div>
-                                                            ) : (
-                                                                <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-700 text-slate-400 flex items-center justify-center text-[10px] border border-slate-200 dark:border-zinc-600">
-                                                                    <User size={12} />
-                                                                </div>
-                                                            )}
-                                                            <span className="text-slate-600 dark:text-slate-400 text-xs">
-                                                                {task.assignees && task.assignees.length > 0 ? task.assignees[0] : '未割当'}
-                                                            </span>
+                                                        <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+                                                            <AssigneeSelector task={task} />
                                                         </div>
                                                     </td>
                                                     <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>

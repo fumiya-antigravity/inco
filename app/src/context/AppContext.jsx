@@ -122,11 +122,21 @@ export const AppProvider = ({ children }) => {
         const status = taskStatuses.find(s => s.name === newTask.status && s.project_id === activeProjectId);
         if (status) dbTask.status_id = status.id;
 
-        const priority = taskPriorities.find(p => p.name === newTask.priority && p.project_id === activeProjectId);
-        if (priority) dbTask.priority_id = priority.id;
+        // Allow null/unselected priority
+        if (newTask.priority === '未選択') {
+            dbTask.priority_id = null;
+        } else {
+            const priority = taskPriorities.find(p => p.name === newTask.priority && p.project_id === activeProjectId);
+            if (priority) dbTask.priority_id = priority.id;
+        }
 
-        const type = taskTypes.find(t => t.name === newTask.type && t.project_id === activeProjectId);
-        if (type) dbTask.type_id = type.id;
+        // Allow null/unselected type
+        if (newTask.type === '未選択') {
+            dbTask.type_id = null;
+        } else {
+            const type = taskTypes.find(t => t.name === newTask.type && t.project_id === activeProjectId);
+            if (type) dbTask.type_id = type.id;
+        }
 
         const payload = {
             project_id: dbTask.project_id,
