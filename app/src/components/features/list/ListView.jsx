@@ -189,6 +189,7 @@ const ListView = () => {
                                     {sectionTasks.map((task) => (
                                         <tr
                                             key={task.id}
+                                            data-task-row="true" // Identifier for click-outside logic
                                             draggable={creatingTaskId !== task.id && editingTaskId !== task.id}
                                             onDragStart={(e) => handleDragStart(e, task.id)}
                                             onDragOver={(e) => handleDragOver(e, section.id)}
@@ -219,35 +220,37 @@ const ListView = () => {
                                                         />
                                                     </td>
                                                     <td className="p-4 font-mono text-slate-500 dark:text-slate-400 text-xs cursor-grab active:cursor-grabbing">{task.key}</td>
-                                                    <td className="p-4" onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (editingTaskId === task.id) return;
-                                                        setEditingTaskId(task.id);
-                                                    }}>
+                                                    <td className="p-4">
+                                                        {/* Removed onClick stopPropagation from TD to allow cell padding click to open detail */}
                                                         {editingTaskId === task.id ? (
-                                                            <input
-                                                                autoFocus
-                                                                type="text"
-                                                                defaultValue={task.title}
-                                                                className="w-[75%] bg-white dark:bg-zinc-800 border-none rounded focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 dark:text-slate-100 px-1 py-0.5"
-                                                                onBlur={(e) => {
-                                                                    updateTask(task.id, 'title', e.target.value);
-                                                                    setEditingTaskId(null);
-                                                                }}
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter') {
-                                                                        e.currentTarget.blur();
-                                                                    }
-                                                                    if (e.key === 'Escape') {
+                                                            <div onClick={(e) => e.stopPropagation()} className="w-full">
+                                                                <input
+                                                                    autoFocus
+                                                                    type="text"
+                                                                    defaultValue={task.title}
+                                                                    className="w-[75%] bg-white dark:bg-zinc-800 border-none rounded focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 dark:text-slate-100 px-1 py-0.5"
+                                                                    onBlur={(e) => {
+                                                                        updateTask(task.id, 'title', e.target.value);
                                                                         setEditingTaskId(null);
-                                                                    }
-                                                                }}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                            />
-
+                                                                    }}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') {
+                                                                            e.currentTarget.blur();
+                                                                        }
+                                                                        if (e.key === 'Escape') {
+                                                                            setEditingTaskId(null);
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </div>
                                                         ) : (
                                                             <span
-                                                                className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors block w-full truncate cursor-text hover:underline decoration-dashed underline-offset-4 decoration-slate-300"
+                                                                // Move edit trigger to the text span only
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation(); // Stop bubbling to TR (Open Detail)
+                                                                    setEditingTaskId(task.id); // Start Edit
+                                                                }}
+                                                                className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors block w-fit max-w-full truncate cursor-text hover:underline decoration-dashed underline-offset-4 decoration-slate-300"
                                                             >
                                                                 {task.title || <span className="text-slate-400 italic">無題</span>}
                                                             </span>

@@ -101,17 +101,34 @@ const TaskDetailPanel = () => {
     // Sort activities by timestamp (newest first)
     const sortedActivities = [...activities].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
+    const panelRef = React.useRef(null);
+
+    React.useEffect(() => {
+        const handleClickOutside = (event) => {
+            // Check if click is outside panel
+            if (panelRef.current && !panelRef.current.contains(event.target)) {
+                // IMPORTANT: Check if the click target is part of a Task Row
+                // If it is, we DO NOT close here, because the row's onClick handler will switch the task.
+                if (event.target.closest('[data-task-row="true"]')) {
+                    return;
+                }
+                closeDetailPanel();
+            }
+        };
+
+        // Use mousedown to capture interaction before click fires, 
+        // effectively handling "outside" interaction
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [searchParams]);
+
     return (
 
         <>
-            {/* Backdrop */}
+            {/* Panel - No blocking backdrop */}
             <div
-                className="fixed inset-0 bg-black/20 z-30 animate-in fade-in duration-200"
-                onClick={closeDetailPanel}
-            />
-
-            {/* Panel */}
-            <div className="
+                ref={panelRef}
+                className="
                 fixed top-14 bottom-0 right-0 z-40 
                 w-full sm:w-[380px] md:w-[450px] lg:w-[550px]
                 bg-white dark:bg-zinc-900 
