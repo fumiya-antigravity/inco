@@ -33,6 +33,7 @@ const ListView = () => {
 
     // Creating state
     const [creatingTaskId, setCreatingTaskId] = useState(null);
+    const [editingTaskId, setEditingTaskId] = useState(null);
     const [draggedTaskId, setDraggedTaskId] = useState(null);
     const [dragOverSectionId, setDragOverSectionId] = useState(null);
 
@@ -188,7 +189,7 @@ const ListView = () => {
                                     {sectionTasks.map((task) => (
                                         <tr
                                             key={task.id}
-                                            draggable={creatingTaskId !== task.id}
+                                            draggable={creatingTaskId !== task.id && editingTaskId !== task.id}
                                             onDragStart={(e) => handleDragStart(e, task.id)}
                                             onDragOver={(e) => handleDragOver(e, section.id)}
                                             onDrop={(e) => handleDrop(e, section.id)}
@@ -199,7 +200,7 @@ const ListView = () => {
                           ${selectedTaskId === task.id ? 'bg-emerald-50/50 dark:bg-emerald-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'}
                         `}
                                             onClick={() => {
-                                                if (creatingTaskId !== task.id) handleTaskClick(task);
+                                                if (creatingTaskId !== task.id && editingTaskId !== task.id) handleTaskClick(task);
                                             }}
                                         >
                                             {creatingTaskId === task.id ? (
@@ -208,21 +209,49 @@ const ListView = () => {
                                                 </td>
                                             ) : (
                                                 <>
-                                                    <td className="p-4 text-center">
+                                                    <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
                                                         <CompletionCheckButton
                                                             isCompleted={task.status === '完了'}
-                                                            onClick={() => toggleTaskCompletion(task.id)}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleTaskCompletion(task.id);
+                                                            }}
                                                         />
                                                     </td>
                                                     <td className="p-4 font-mono text-slate-500 dark:text-slate-400 text-xs cursor-grab active:cursor-grabbing">{task.key}</td>
-                                                    <td className="p-4">
-                                                        <span
-                                                            className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors block w-full truncate"
-                                                        >
-                                                            {task.title || <span className="text-slate-400 italic">無題</span>}
-                                                        </span>
+                                                    <td className="p-4" onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setEditingTaskId(task.id);
+                                                    }}>
+                                                        {editingTaskId === task.id ? (
+                                                            <input
+                                                                autoFocus
+                                                                type="text"
+                                                                defaultValue={task.title}
+                                                                className="w-full bg-white dark:bg-zinc-800 border-none rounded focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 dark:text-slate-100 px-1 py-0.5"
+                                                                onBlur={(e) => {
+                                                                    updateTask(task.id, 'title', e.target.value);
+                                                                    setEditingTaskId(null);
+                                                                }}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') {
+                                                                        e.currentTarget.blur();
+                                                                    }
+                                                                    if (e.key === 'Escape') {
+                                                                        setEditingTaskId(null);
+                                                                    }
+                                                                }}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                        ) : (
+                                                            <span
+                                                                className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors block w-full truncate cursor-text hover:underline decoration-dashed underline-offset-4 decoration-slate-300"
+                                                            >
+                                                                {task.title || <span className="text-slate-400 italic">無題</span>}
+                                                            </span>
+                                                        )}
                                                     </td>
-                                                    <td className="p-4">
+                                                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
                                                         <div className="flex items-center gap-2">
                                                             {task.assignees && task.assignees.length > 0 ? (
                                                                 <div className="w-6 h-6 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-[10px] font-bold border border-indigo-100 dark:border-indigo-900/50">
@@ -238,14 +267,14 @@ const ListView = () => {
                                                             </span>
                                                         </div>
                                                     </td>
-                                                    <td className="p-4 text-center">
+                                                    <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
                                                         <div className="flex justify-center">
                                                             <TypeSelector task={task} />
                                                         </div>
                                                     </td>
-                                                    <td className="p-4"><StatusSelector task={task} /></td>
-                                                    <td className="p-4"><PrioritySelector task={task} /></td>
-                                                    <td className="p-4">
+                                                    <td className="p-4" onClick={(e) => e.stopPropagation()}><StatusSelector task={task} /></td>
+                                                    <td className="p-4" onClick={(e) => e.stopPropagation()}><PrioritySelector task={task} /></td>
+                                                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
                                                         <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs">
                                                             <Calendar size={14} className="opacity-70" /> {task.due}
                                                         </div>

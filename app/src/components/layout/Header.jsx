@@ -24,13 +24,7 @@ const Header = () => {
             </div>
 
             <div className="flex items-center gap-2 md:gap-4 pl-2">
-                <button
-                    onClick={() => setIsTaskModalOpen(true)}
-                    className="hidden sm:flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors shadow-sm shadow-emerald-500/20"
-                >
-                    <Plus size={16} />
-                    <span>作成</span>
-                </button>
+
 
                 <button className="text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 p-2 rounded-full relative transition-colors">
                     <Bell size={20} />

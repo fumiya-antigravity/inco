@@ -121,7 +121,7 @@ const Sidebar = () => {
                     `}
                                         title={!isSidebarOpen ? project.name : ""}
                                     >
-                                        <ProjectIcon color={project.color} size="sm" />
+                                        <ProjectIcon color={project.color} icon={project.icon} size="sm" />
                                         {isSidebarOpen && <span className="truncate flex-1 text-left">{project.name}</span>}
                                     </button>
                                 </li>
