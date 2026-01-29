@@ -227,10 +227,14 @@ const ListView = () => {
                                                                 <input
                                                                     autoFocus
                                                                     type="text"
-                                                                    defaultValue={task.title}
+                                                                    value={task.title}
                                                                     className="w-[75%] bg-white dark:bg-zinc-800 border-none rounded focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 dark:text-slate-100 px-1 py-0.5"
-                                                                    onBlur={(e) => {
+                                                                    onChange={(e) => {
                                                                         updateTask(task.id, 'title', e.target.value);
+                                                                    }}
+                                                                    onBlur={(e) => {
+                                                                        // updateTask is already called by onChange.
+                                                                        // Just close edit mode.
                                                                         setEditingTaskId(null);
                                                                     }}
                                                                     onKeyDown={(e) => {

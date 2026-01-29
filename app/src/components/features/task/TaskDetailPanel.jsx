@@ -15,14 +15,15 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const TaskDetailPanel = () => {
     const {
-        tasks, projects, updateTask, toggleTaskCompletion, setTasks, addTask, deleteTask
+        tasks, currentProjectTasks, projects, updateTask, toggleTaskCompletion, setTasks, addTask, deleteTask
     } = useApp();
     const [searchParams, setSearchParams] = useSearchParams();
 
 
     // Get selected task from URL query param '?task=ID'
     const taskIdString = searchParams.get('task');
-    const selectedTask = taskIdString ? tasks.find(t => t.id === parseInt(taskIdString)) : null;
+    // Use currentProjectTasks to ensure we have mapped fields like sectionId (vs section_id)
+    const selectedTask = taskIdString ? currentProjectTasks.find(t => t.id === parseInt(taskIdString)) : null;
 
     const [isCreatingSubtask, setIsCreatingSubtask] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);

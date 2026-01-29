@@ -156,6 +156,9 @@ export const AppProvider = ({ children }) => {
         return data;
     };
 
+    // Debounce timers
+    const debounceTimers = React.useRef({});
+
     const updateTask = async (taskId, field, value) => { // Modified signature to match old usage (id, field, value)
         // Map field names if necessary
         let dbField = field;
@@ -164,14 +167,36 @@ export const AppProvider = ({ children }) => {
         if (field === 'sectionId') dbField = 'section_id';
         if (field === 'due') dbField = 'due_date';
 
-        // Optimistic update
+        // 1. Optimistic update (Immediate UI feedback)
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, [field]: value, [dbField]: value } : t));
 
-        const updates = { [dbField]: dbValue };
-        const { error } = await supabase.from('tasks').update(updates).eq('id', taskId);
-        if (error) {
-            console.error('Error updating task:', error);
-            fetchData();
+        // 2. DB Update (Debounced for text fields)
+        const isTextField = ['title', 'description'].includes(field);
+
+        // Cancel previous timer for this task+field
+        const timerKey = `${taskId}-${dbField}`;
+        if (debounceTimers.current[timerKey]) {
+            clearTimeout(debounceTimers.current[timerKey]);
+        }
+
+        const updateDB = async () => {
+            const updates = { [dbField]: dbValue };
+            const { error } = await supabase.from('tasks').update(updates).eq('id', taskId);
+            if (error) {
+                console.error('Error updating task:', error);
+                // Ideally revert here, but tricky with debounce. 
+                // For now, logging error. Real app needs robust sync.
+                fetchData();
+            }
+            delete debounceTimers.current[timerKey];
+        };
+
+        if (isTextField) {
+            // Wait 1000ms for text fields
+            debounceTimers.current[timerKey] = setTimeout(updateDB, 1000);
+        } else {
+            // Immediate for others (status, priority, etc.)
+            await updateDB();
         }
     };
 
