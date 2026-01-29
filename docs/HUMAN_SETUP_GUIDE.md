@@ -23,6 +23,8 @@ VercelがSupabaseと通信するために必要です。
 2. 以下の変数が登録されているか確認（なければ追加）。
     * `VITE_SUPABASE_URL`: (Supabase Project URL)
     * `VITE_SUPABASE_ANON_KEY`: (Supabase Anon Public Key)
+      > ⚠️ **注意**: `sb_publishable_...` で始まる文字列は「Key ID」であり、ここには入力しないでください。
+      > 必ず `eyJ` から始まる非常に長い「Key Value (JWT)」を入力してください（Supabase管理画面の Project Settings > API > Project API keys から取得）。
 3. **重要:** 設定変更後は [Deployments] タブから **Redeploy** を行うこと。
 
 ---
