@@ -384,7 +384,8 @@ export const AppProvider = ({ children }) => {
                     {children}
                 </div>
             </AppContext.Provider>
+            </AppContext.Provider >
         );
     };
 
-    export const useApp = () => useContext(AppContext);
+export const useApp = () => useContext(AppContext);
