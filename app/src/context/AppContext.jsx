@@ -1,116 +1,213 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
-    // --- State from original App.jsx ---
-    const [activeProjectId, setActiveProjectId] = useState(1);
+    // --- UI State ---
+    const [activeProjectId, setActiveProjectId] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [projectsCollapsed, setProjectsCollapsed] = useState(false);
 
-    // Data
-    const [projects, setProjects] = useState([
-        { id: 1, name: 'Project Phoenix', key: 'PHX', color: 'emerald' },
-        { id: 2, name: 'Webサイトリニューアル', key: 'WEB', color: 'blue' },
-        { id: 3, name: '社内インフラ整備', key: 'INF', color: 'orange' },
-    ]);
+    // --- Data State ---
+    const [projects, setProjects] = useState([]);
+    const [tasks, setTasks] = useState([]);
+    const [wikiPages, setWikiPages] = useState([]);
 
-    const [sections] = useState([
-        { id: 's1', title: '未対応' },
-        { id: 's2', title: '処理中' },
-        { id: 's3', title: '完了' }
-    ]);
+    // Master Data
+    const [taskStatuses, setTaskStatuses] = useState([]);
+    const [taskPriorities, setTaskPriorities] = useState([]);
+    const [taskTypes, setTaskTypes] = useState([]);
 
-    const [tasks, setTasks] = useState([
-        {
-            id: 1,
-            projectIds: [1],
-            sectionId: 's1',
-            key: 'PHX-1',
-            title: 'ログイン画面のデザイン作成',
-            assignees: ['山田 太郎'],
-            status: '未対応',
-            completed: false,
-            priority: '高',
-            type: 'タスク',
-            due: '2024-02-10',
-            description: 'Figmaのデザインをもとにコーディングを行う。\nレスポンシブ対応も忘れずに。',
-            subtasks: [
-                { id: 101, title: 'ワイヤーフレーム確認', completed: true },
-                { id: 102, title: 'デザインカンプ作成', completed: false },
-            ],
-            activities: [
-                { id: 'h1', type: 'history', text: '山田 太郎 がタスクを作成しました', timestamp: new Date('2024-02-01T10:00:00') },
-                { id: 'c1', type: 'comment', user: '鈴木 花子', text: 'デザインの方向性は確認済みですか？', timestamp: new Date('2024-02-01T14:30:00') }
-            ]
-        },
-        {
-            id: 2,
-            projectIds: [1, 2],
-            sectionId: 's2',
-            key: 'PHX-2',
-            title: 'API仕様書のレビュー',
-            assignees: ['鈴木 花子', '佐藤 次郎'],
-            status: '処理中',
-            completed: false,
-            priority: '中',
-            type: 'タスク',
-            due: '2024-02-12',
-            description: '',
-            subtasks: [],
-            activities: [
-                { id: 'h2', type: 'history', text: '鈴木 花子 がタスクを作成しました', timestamp: new Date('2024-02-02T09:00:00') }
-            ]
-        },
-        { id: 3, projectIds: [1], sectionId: 's3', key: 'PHX-3', title: 'ロゴ画像が表示されないバグ修正', assignees: ['田中 一郎'], status: '完了', completed: true, priority: '高', type: 'バグ', due: '2024-02-05', description: 'IE11で表示が崩れる', subtasks: [], activities: [] },
-        // ... add other tasks if needed or keep it minimal for now
-    ]);
+    const [loading, setLoading] = useState(true);
 
-    const [wikiPages, setWikiPages] = useState([
-        { id: 1, title: 'Project Phoenix Wikiへようこそ', content: 'このプロジェクトに関するドキュメント、議事録、仕様書などを管理します。\nサイドバーからページを選択するか、右上のボタンから新しいページを作成してください。', updatedBy: 'システム', updatedAt: new Date() }
-    ]);
+    // --- Data Fetching ---
+    useEffect(() => {
+        fetchData();
+    }, []);
 
-    const addWikiPage = (page) => {
-        const newPage = { ...page, id: Date.now(), updatedBy: 'Me', updatedAt: new Date() };
-        setWikiPages(prev => [...prev, newPage]);
-        return newPage;
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const [
+                { data: projectsData },
+                { data: tasksData },
+                { data: wikisData },
+                { data: statusesData },
+                { data: prioritiesData },
+                { data: typesData }
+            ] = await Promise.all([
+                supabase.from('projects').select('*').order('created_at', { ascending: true }),
+                supabase.from('tasks').select('*, activities(*)').order('created_at', { ascending: false }),
+                supabase.from('wikis').select('*').order('updated_at', { ascending: false }),
+                supabase.from('task_statuses').select('*').order('position', { ascending: true }),
+                supabase.from('task_priorities').select('*').order('position', { ascending: true }),
+                supabase.from('task_types').select('*').order('position', { ascending: true })
+            ]);
+
+            setProjects(projectsData || []);
+            setTasks(tasksData || []);
+            setWikiPages(wikisData || []);
+            setTaskStatuses(statusesData || []);
+            setTaskPriorities(prioritiesData || []);
+            setTaskTypes(typesData || []);
+
+            // Set default active project
+            if (projectsData && projectsData.length > 0 && !activeProjectId) {
+                setActiveProjectId(projectsData[0].id);
+            }
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        } finally {
+            setLoading(false);
+        }
     };
-
-    const updateWikiPage = (id, updates) => {
-        setWikiPages(prev => prev.map(p => p.id === id ? { ...p, ...updates, updatedAt: new Date() } : p));
-    };
-
-    // Derived
-    const currentProject = projects.find(p => p.id === activeProjectId) || projects[0];
-    const currentProjectTasks = tasks.filter(t => t.projectIds && t.projectIds.includes(activeProjectId));
 
     // --- Actions ---
-    const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
+    const addProject = async (project) => {
+        const { data, error } = await supabase.from('projects').insert([project]).select().single();
+        if (error) {
+            console.error('Error adding project:', error);
+            return null;
+        }
+        setProjects(prev => [...prev, data]);
 
-    const updateTask = (taskId, field, value) => {
-        setTasks(prev => prev.map(t =>
-            t.id === taskId ? { ...t, [field]: value } : t
-        ));
+        // Create default statuses for the new project
+        const defaultStatuses = [
+            { project_id: data.id, name: '未対応', position: 1, color: 'slate' },
+            { project_id: data.id, name: '処理中', position: 2, color: 'blue' },
+            { project_id: data.id, name: '完了', position: 3, color: 'emerald' }
+        ];
+        const { data: statusData } = await supabase.from('task_statuses').insert(defaultStatuses).select();
+        if (statusData) {
+            setTaskStatuses(prev => [...prev, ...statusData]);
+        }
+
+        return data;
     };
 
-    const toggleTaskCompletion = (taskId) => {
-        setTasks(prev => prev.map(t => {
-            if (t.id === taskId) {
-                return { ...t, completed: !t.completed };
-            }
-            return t;
+    const addTask = async (newTask) => {
+        // Prepare task for DB: map UI fields to DB columns
+        const dbTask = {
+            project_id: newTask.projectIds ? newTask.projectIds[0] : activeProjectId,
+            section_id: newTask.sectionId ? newTask.sectionId.toString() : null, // Store sectionId
+            key: newTask.key,
+            title: newTask.title,
+            description: newTask.description,
+            status: newTask.status, // Legacy text field or unused? Kept for now
+            priority: newTask.priority,
+            type: newTask.type,
+            due_date: newTask.due ? newTask.due : null,
+            completed: newTask.completed
+        };
+
+        const { data, error } = await supabase.from('tasks').insert([dbTask]).select('*, activities(*)').single();
+        if (error) {
+            console.error('Error adding task:', error);
+            return null;
+        }
+        setTasks(prev => [data, ...prev]);
+        return data;
+    };
+
+    const updateTask = async (taskId, field, value) => { // Modified signature to match old usage (id, field, value)
+        // Map field names if necessary
+        let dbField = field;
+        let dbValue = value;
+
+        if (field === 'sectionId') dbField = 'section_id';
+        if (field === 'due') dbField = 'due_date';
+
+        // Optimistic update
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, [field]: value, [dbField]: value } : t));
+
+        const updates = { [dbField]: dbValue };
+        const { error } = await supabase.from('tasks').update(updates).eq('id', taskId);
+        if (error) {
+            console.error('Error updating task:', error);
+            fetchData();
+        }
+    };
+
+    const toggleTaskCompletion = async (taskId) => {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+        const newCompleted = !task.completed;
+
+        await updateTask(taskId, 'completed', newCompleted);
+    };
+
+    const addWikiPage = async (page) => {
+        const dbPage = {
+            ...page,
+            project_id: activeProjectId
+        };
+        const { data, error } = await supabase.from('wikis').insert([dbPage]).select().single();
+        if (error) {
+            console.error('Error adding wiki:', error);
+            return null;
+        }
+        setWikiPages(prev => [data, ...prev]);
+        return data;
+    };
+
+    const updateWikiPage = async (id, updates) => {
+        setWikiPages(prev => prev.map(p => p.id === id ? { ...p, ...updates, updated_at: new Date() } : p));
+
+        const { error } = await supabase.from('wikis').update({ ...updates, updated_at: new Date() }).eq('id', id);
+        if (error) {
+            console.error('Error updating wiki:', error);
+            fetchData();
+        }
+    };
+
+    // --- Derived Data ---
+    const currentProject = projects.find(p => p.id === activeProjectId) || null;
+
+    // Filter master data for current project
+    const currentStatuses = taskStatuses.filter(s => s.project_id === activeProjectId);
+    const currentPriorities = taskPriorities.filter(p => p.project_id === activeProjectId);
+    const currentTypes = taskTypes.filter(t => t.project_id === activeProjectId);
+
+    // Compat: Map sections from statuses
+    // If no statuses exist (fresh project), provide defaults locally or wait for seed
+    const sections = currentStatuses.length > 0
+        ? currentStatuses.map(s => ({ id: s.id.toString(), title: s.name, color: s.color }))
+        : [
+            { id: '1', title: '未対応' },
+            { id: '2', title: '処理中' },
+            { id: '3', title: '完了' }
+        ]; // Fallback
+
+    // Derived tasks with compatibility mapping
+    const currentProjectTasks = tasks
+        .filter(t => t.project_id === activeProjectId && !t.parent_id)
+        .map(t => ({
+            ...t,
+            projectIds: [t.project_id], // Map back to array
+            sectionId: t.section_id || sections[0].id, // Map snake_case to camelCase
+            due: t.due_date, // Map due_date to due
         }));
-    };
 
-    const addTask = (newTask) => {
-        setTasks(prev => [...prev, newTask]);
-    };
-
-    const addProject = (project) => {
-        setProjects(prev => [...prev, { ...project, id: Date.now() }]);
-    };
+    // Self-healing: Seed default statuses if missing for active project
+    useEffect(() => {
+        if (activeProjectId && currentStatuses.length === 0 && !loading) {
+            const seedDefaults = async () => {
+                const defaultStatuses = [
+                    { project_id: activeProjectId, name: '未対応', position: 1, color: 'slate' },
+                    { project_id: activeProjectId, name: '処理中', position: 2, color: 'blue' },
+                    { project_id: activeProjectId, name: '完了', position: 3, color: 'emerald' }
+                ];
+                const { data } = await supabase.from('task_statuses').insert(defaultStatuses).select();
+                if (data) {
+                    setTaskStatuses(prev => [...prev, ...data]);
+                }
+            };
+            seedDefaults();
+        }
+    }, [activeProjectId, currentStatuses.length, loading]);
 
     // Resize Listener
     useEffect(() => {
@@ -125,16 +222,30 @@ export const AppProvider = ({ children }) => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // Theme
+    const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
+
     return (
         <AppContext.Provider value={{
+            loading,
             projects,
-            sections,
             tasks,
-            setTasks,
-            activeProjectId,
-            setActiveProjectId,
+            wikiPages,
+            taskStatuses,
+            taskPriorities,
+            taskTypes,
+
+            // Compat exposed props
+            sections,
+
             currentProject,
             currentProjectTasks,
+            currentStatuses,
+            currentPriorities,
+            currentTypes,
+
+            activeProjectId,
+            setActiveProjectId,
             isSidebarOpen,
             setIsSidebarOpen,
             isMobileMenuOpen,
@@ -143,11 +254,11 @@ export const AppProvider = ({ children }) => {
             setProjectsCollapsed,
             isDarkMode,
             toggleDarkMode,
+
             updateTask,
             toggleTaskCompletion,
             addTask,
             addProject,
-            wikiPages,
             addWikiPage,
             updateWikiPage
         }}>

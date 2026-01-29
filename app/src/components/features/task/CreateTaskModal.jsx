@@ -58,7 +58,7 @@ const CreateTaskModal = ({ isOpen, onClose }) => {
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="w-full text-xl font-bold placeholder-slate-300 border-none outline-none bg-transparent"
+                    className="w-full text-xl font-bold placeholder-slate-300 border-none outline-none bg-transparent text-slate-800 dark:text-slate-100"
                     placeholder="タスク名を入力..."
                     autoFocus
                 />
