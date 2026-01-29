@@ -127,7 +127,7 @@ const ListView = () => {
                         <tr className="group">
                             <th className="p-4 w-12 border-b border-slate-200 dark:border-zinc-700"></th> {/* Checkbox Column */}
                             <SortableHeader label="キー" sortKey="key" width="w-24" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
-                            <SortableHeader label="件名" sortKey="title" width="min-w-[300px]" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
+                            <SortableHeader label="タスク名" sortKey="title" width="min-w-[300px]" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
                             <SortableHeader label="担当者" sortKey="assignee" width="w-36" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
                             <SortableHeader label="種別" sortKey="type" width="w-20" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
                             <SortableHeader label="ステータス" sortKey="status" width="w-32" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
@@ -221,6 +221,7 @@ const ListView = () => {
                                                     <td className="p-4 font-mono text-slate-500 dark:text-slate-400 text-xs cursor-grab active:cursor-grabbing">{task.key}</td>
                                                     <td className="p-4" onClick={(e) => {
                                                         e.stopPropagation();
+                                                        if (editingTaskId === task.id) return;
                                                         setEditingTaskId(task.id);
                                                     }}>
                                                         {editingTaskId === task.id ? (
@@ -228,7 +229,7 @@ const ListView = () => {
                                                                 autoFocus
                                                                 type="text"
                                                                 defaultValue={task.title}
-                                                                className="w-full bg-white dark:bg-zinc-800 border-none rounded focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 dark:text-slate-100 px-1 py-0.5"
+                                                                className="w-[75%] bg-white dark:bg-zinc-800 border-none rounded focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 dark:text-slate-100 px-1 py-0.5"
                                                                 onBlur={(e) => {
                                                                     updateTask(task.id, 'title', e.target.value);
                                                                     setEditingTaskId(null);
@@ -243,6 +244,7 @@ const ListView = () => {
                                                                 }}
                                                                 onClick={(e) => e.stopPropagation()}
                                                             />
+
                                                         ) : (
                                                             <span
                                                                 className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors block w-full truncate cursor-text hover:underline decoration-dashed underline-offset-4 decoration-slate-300"
