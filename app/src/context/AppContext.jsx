@@ -169,223 +169,221 @@ export const AppProvider = ({ children }) => {
     // Debounce timers
     const debounceTimers = React.useRef({});
 
-    const updateTask = async (taskId, field, value) => { // Modified signature to match old usage (id, field, value)
-        // Map field names if necessary
-        const updateTask = async (taskId, field, value) => {
-            let dbField = field;
-            let dbValue = value;
+    const updateTask = async (taskId, field, value) => {
+        let dbField = field;
+        let dbValue = value;
 
-            if (field === 'sectionId') dbField = 'section_id';
-            if (field === 'due') dbField = 'due_date';
+        if (field === 'sectionId') dbField = 'section_id';
+        if (field === 'due') dbField = 'due_date';
 
-            if (field === 'status') {
-                dbField = 'status_id';
-                const status = taskStatuses.find(s => s.name === value && s.project_id === activeProjectId);
-                dbValue = status ? status.id : null;
+        if (field === 'status') {
+            dbField = 'status_id';
+            const status = taskStatuses.find(s => s.name === value && s.project_id === activeProjectId);
+            dbValue = status ? status.id : null;
+        }
+        if (field === 'priority') {
+            dbField = 'priority_id';
+            if (value === '未選択') dbValue = null;
+            else {
+                const priority = taskPriorities.find(p => p.name === value && p.project_id === activeProjectId);
+                dbValue = priority ? priority.id : null;
             }
-            if (field === 'priority') {
-                dbField = 'priority_id';
-                if (value === '未選択') dbValue = null;
-                else {
-                    const priority = taskPriorities.find(p => p.name === value && p.project_id === activeProjectId);
-                    dbValue = priority ? priority.id : null;
-                }
+        }
+        if (field === 'type') {
+            dbField = 'type_id';
+            if (value === '未選択') dbValue = null;
+            else {
+                const type = taskTypes.find(t => t.name === value && t.project_id === activeProjectId);
+                dbValue = type ? type.id : null;
             }
-            if (field === 'type') {
-                dbField = 'type_id';
-                if (value === '未選択') dbValue = null;
-                else {
-                    const type = taskTypes.find(t => t.name === value && t.project_id === activeProjectId);
-                    dbValue = type ? type.id : null;
-                }
-            }
-            if (field === 'assignees') {
-                setTasks(prev => prev.map(t => t.id === taskId ? { ...t, [field]: value } : t));
-                return;
-            }
+        }
+        if (field === 'assignees') {
+            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, [field]: value } : t));
+            return;
+        }
 
-            // 1. Optimistic update (Immediate UI feedback)
-            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, [field]: value, [dbField]: dbValue } : t));
+        // 1. Optimistic update (Immediate UI feedback)
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, [field]: value, [dbField]: dbValue } : t));
 
-            // 2. DB Update (Debounced for text fields)
-            const isTextField = ['title', 'description'].includes(field);
+        // 2. DB Update (Debounced for text fields)
+        const isTextField = ['title', 'description'].includes(field);
 
-            // Cancel previous timer for this task+field
-            const timerKey = `${taskId}-${dbField}`;
-            if (debounceTimers.current[timerKey]) {
-                clearTimeout(debounceTimers.current[timerKey]);
-            }
+        // Cancel previous timer for this task+field
+        const timerKey = `${taskId}-${dbField}`;
+        if (debounceTimers.current[timerKey]) {
+            clearTimeout(debounceTimers.current[timerKey]);
+        }
 
-            const updateDB = async () => {
-                const updates = { [dbField]: dbValue };
-                const { error } = await supabase.from('tasks').update(updates).eq('id', taskId);
-                if (error) {
-                    console.error('Error updating task:', error);
-                    // Ideally revert here, but tricky with debounce. 
-                    // For now, logging error. Real app needs robust sync.
-                    fetchData();
-                }
-                delete debounceTimers.current[timerKey];
-            };
-
-            if (isTextField) {
-                // Wait 1000ms for text fields
-                debounceTimers.current[timerKey] = setTimeout(updateDB, 1000);
-            } else {
-                // Immediate for others (status, priority, etc.)
-                await updateDB();
-            }
-        };
-
-        const toggleTaskCompletion = async (taskId) => {
-            const task = tasks.find(t => t.id === taskId);
-            if (!task) return;
-            const newCompleted = !task.completed;
-
-            await updateTask(taskId, 'completed', newCompleted);
-        };
-
-        const deleteTask = async (taskId) => {
-            // Optimistic update
-            setTasks(prev => prev.filter(t => t.id !== taskId));
-
-            const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+        const updateDB = async () => {
+            const updates = { [dbField]: dbValue };
+            const { error } = await supabase.from('tasks').update(updates).eq('id', taskId);
             if (error) {
-                console.error('Error deleting task:', error);
-                fetchData(); // Revert on error
-            }
-        };
-
-        const addWikiPage = async (page) => {
-            const dbPage = {
-                ...page,
-                project_id: activeProjectId
-            };
-            const { data, error } = await supabase.from('wikis').insert([dbPage]).select().single();
-            if (error) {
-                console.error('Error adding wiki:', error);
-                return null;
-            }
-            setWikiPages(prev => [data, ...prev]);
-            return data;
-        };
-
-        const updateWikiPage = async (id, updates) => {
-            setWikiPages(prev => prev.map(p => p.id === id ? { ...p, ...updates, updated_at: new Date() } : p));
-
-            const { error } = await supabase.from('wikis').update({ ...updates, updated_at: new Date() }).eq('id', id);
-            if (error) {
-                console.error('Error updating wiki:', error);
+                console.error('Error updating task:', error);
+                // Ideally revert here, but tricky with debounce. 
+                // For now, logging error. Real app needs robust sync.
                 fetchData();
             }
+            delete debounceTimers.current[timerKey];
         };
 
-        // --- Derived Data ---
-        const currentProject = projects.find(p => p.id === activeProjectId) || null;
-
-        // Filter master data for current project
-        const currentStatuses = taskStatuses.filter(s => s.project_id === activeProjectId);
-        const currentPriorities = taskPriorities.filter(p => p.project_id === activeProjectId);
-        const currentTypes = taskTypes.filter(t => t.project_id === activeProjectId);
-
-        // Compat: Map sections from statuses
-        // If no statuses exist (fresh project), provide defaults locally or wait for seed
-        const sections = currentStatuses.length > 0
-            ? currentStatuses.map(s => ({ id: s.id.toString(), title: s.name, color: s.color }))
-            : [
-                { id: '1', title: '未対応' },
-                { id: '2', title: '処理中' },
-                { id: '3', title: '完了' }
-            ]; // Fallback
-
-        // Derived tasks with compatibility mapping
-        const currentProjectTasks = tasks
-            .filter(t => t.project_id === activeProjectId && !t.parent_id)
-            .map(t => ({
-                ...t,
-                projectIds: [t.project_id], // Map back to array
-                sectionId: t.section_id || sections[0].id, // Map snake_case to camelCase
-                due: t.due_date, // Map due_date to due
-            }));
-
-        // Self-healing: Seed default statuses if missing for active project
-        useEffect(() => {
-            if (activeProjectId && currentStatuses.length === 0 && !loading) {
-                const seedDefaults = async () => {
-                    const defaultStatuses = [
-                        { project_id: activeProjectId, name: '未対応', position: 1, color: 'slate' },
-                        { project_id: activeProjectId, name: '処理中', position: 2, color: 'blue' },
-                        { project_id: activeProjectId, name: '完了', position: 3, color: 'emerald' }
-                    ];
-                    const { data } = await supabase.from('task_statuses').insert(defaultStatuses).select();
-                    if (data) {
-                        setTaskStatuses(prev => [...prev, ...data]);
-                    }
-                };
-                seedDefaults();
-            }
-        }, [activeProjectId, currentStatuses.length, loading]);
-
-        // Resize Listener
-        useEffect(() => {
-            const handleResize = () => {
-                if (window.innerWidth < 768) {
-                    setIsSidebarOpen(false);
-                } else {
-                    setIsSidebarOpen(true);
-                }
-            };
-            window.addEventListener('resize', handleResize);
-            return () => window.removeEventListener('resize', handleResize);
-        }, []);
-
-        // Theme
-        const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
-
-        return (
-            <AppContext.Provider value={{
-                loading,
-                projects,
-                tasks,
-                wikiPages,
-                taskStatuses,
-                taskPriorities,
-                taskTypes,
-
-                // Compat exposed props
-                sections,
-
-                currentProject,
-                currentProjectTasks,
-                currentStatuses,
-                currentPriorities,
-                currentTypes,
-
-                activeProjectId,
-                setActiveProjectId,
-                isSidebarOpen,
-                setIsSidebarOpen,
-                isMobileMenuOpen,
-                setIsMobileMenuOpen,
-                projectsCollapsed,
-                setProjectsCollapsed,
-                isDarkMode,
-                toggleDarkMode,
-
-                updateTask,
-                toggleTaskCompletion,
-                deleteTask,
-                addTask,
-                addProject,
-                addWikiPage,
-                updateWikiPage
-            }}>
-                <div className={isDarkMode ? 'dark' : ''}>
-                    {children}
-                </div>
-            </AppContext.Provider>
-
-        );
+        if (isTextField) {
+            // Wait 1000ms for text fields
+            debounceTimers.current[timerKey] = setTimeout(updateDB, 1000);
+        } else {
+            // Immediate for others (status, priority, etc.)
+            await updateDB();
+        }
     };
 
-    export const useApp = () => useContext(AppContext);
+    const toggleTaskCompletion = async (taskId) => {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+        const newCompleted = !task.completed;
+
+        await updateTask(taskId, 'completed', newCompleted);
+    };
+
+    const deleteTask = async (taskId) => {
+        // Optimistic update
+        setTasks(prev => prev.filter(t => t.id !== taskId));
+
+        const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+        if (error) {
+            console.error('Error deleting task:', error);
+            fetchData(); // Revert on error
+        }
+    };
+
+    const addWikiPage = async (page) => {
+        const dbPage = {
+            ...page,
+            project_id: activeProjectId
+        };
+        const { data, error } = await supabase.from('wikis').insert([dbPage]).select().single();
+        if (error) {
+            console.error('Error adding wiki:', error);
+            return null;
+        }
+        setWikiPages(prev => [data, ...prev]);
+        return data;
+    };
+
+    const updateWikiPage = async (id, updates) => {
+        setWikiPages(prev => prev.map(p => p.id === id ? { ...p, ...updates, updated_at: new Date() } : p));
+
+        const { error } = await supabase.from('wikis').update({ ...updates, updated_at: new Date() }).eq('id', id);
+        if (error) {
+            console.error('Error updating wiki:', error);
+            fetchData();
+        }
+    };
+
+    // --- Derived Data ---
+    const currentProject = projects.find(p => p.id === activeProjectId) || null;
+
+    // Filter master data for current project
+    const currentStatuses = taskStatuses.filter(s => s.project_id === activeProjectId);
+    const currentPriorities = taskPriorities.filter(p => p.project_id === activeProjectId);
+    const currentTypes = taskTypes.filter(t => t.project_id === activeProjectId);
+
+    // Compat: Map sections from statuses
+    // If no statuses exist (fresh project), provide defaults locally or wait for seed
+    const sections = currentStatuses.length > 0
+        ? currentStatuses.map(s => ({ id: s.id.toString(), title: s.name, color: s.color }))
+        : [
+            { id: '1', title: '未対応' },
+            { id: '2', title: '処理中' },
+            { id: '3', title: '完了' }
+        ]; // Fallback
+
+    // Derived tasks with compatibility mapping
+    const currentProjectTasks = tasks
+        .filter(t => t.project_id === activeProjectId && !t.parent_id)
+        .map(t => ({
+            ...t,
+            projectIds: [t.project_id], // Map back to array
+            sectionId: t.section_id || sections[0].id, // Map snake_case to camelCase
+            due: t.due_date, // Map due_date to due
+        }));
+
+    // Self-healing: Seed default statuses if missing for active project
+    useEffect(() => {
+        if (activeProjectId && currentStatuses.length === 0 && !loading) {
+            const seedDefaults = async () => {
+                const defaultStatuses = [
+                    { project_id: activeProjectId, name: '未対応', position: 1, color: 'slate' },
+                    { project_id: activeProjectId, name: '処理中', position: 2, color: 'blue' },
+                    { project_id: activeProjectId, name: '完了', position: 3, color: 'emerald' }
+                ];
+                const { data } = await supabase.from('task_statuses').insert(defaultStatuses).select();
+                if (data) {
+                    setTaskStatuses(prev => [...prev, ...data]);
+                }
+            };
+            seedDefaults();
+        }
+    }, [activeProjectId, currentStatuses.length, loading]);
+
+    // Resize Listener
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth < 768) {
+                setIsSidebarOpen(false);
+            } else {
+                setIsSidebarOpen(true);
+            }
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Theme
+    const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
+
+    return (
+        <AppContext.Provider value={{
+            loading,
+            projects,
+            tasks,
+            wikiPages,
+            taskStatuses,
+            taskPriorities,
+            taskTypes,
+
+            // Compat exposed props
+            sections,
+
+            currentProject,
+            currentProjectTasks,
+            currentStatuses,
+            currentPriorities,
+            currentTypes,
+
+            activeProjectId,
+            setActiveProjectId,
+            isSidebarOpen,
+            setIsSidebarOpen,
+            isMobileMenuOpen,
+            setIsMobileMenuOpen,
+            projectsCollapsed,
+            setProjectsCollapsed,
+            isDarkMode,
+            toggleDarkMode,
+
+            updateTask,
+            toggleTaskCompletion,
+            deleteTask,
+            addTask,
+            addProject,
+            addWikiPage,
+            updateWikiPage
+        }}>
+            <div className={isDarkMode ? 'dark' : ''}>
+                {children}
+            </div>
+        </AppContext.Provider>
+
+    );
+};
+
+export const useApp = () => useContext(AppContext);
