@@ -114,5 +114,5 @@ BEGIN
     END IF;
 END $$;
 
--- Force trigger migration workflow for verification
+-- Force trigger migration workflow for verification (Retry after config fix)
 
