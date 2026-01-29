@@ -126,7 +126,7 @@ const ListView = () => {
                 <table className="w-full text-sm text-left whitespace-nowrap">
                     <thead className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 border-b border-slate-200 dark:border-zinc-700 shadow-sm">
                         <tr className="group">
-                            <th className="p-4 w-12 border-b border-slate-200 dark:border-zinc-700"></th> {/* Checkbox Column */}
+                            <th className="p-4 w-12 border-b border-slate-200 dark:border-zinc-700"></th>
                             <SortableHeader label="キー" sortKey="key" width="w-24" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
                             <SortableHeader label="タスク名" sortKey="title" width="min-w-[300px]" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
                             <SortableHeader label="担当者" sortKey="assignee" width="w-36" currentSortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />
