@@ -183,6 +183,17 @@ export const AppProvider = ({ children }) => {
         await updateTask(taskId, 'completed', newCompleted);
     };
 
+    const deleteTask = async (taskId) => {
+        // Optimistic update
+        setTasks(prev => prev.filter(t => t.id !== taskId));
+
+        const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+        if (error) {
+            console.error('Error deleting task:', error);
+            fetchData(); // Revert on error
+        }
+    };
+
     const addWikiPage = async (page) => {
         const dbPage = {
             ...page,
@@ -301,6 +312,7 @@ export const AppProvider = ({ children }) => {
 
             updateTask,
             toggleTaskCompletion,
+            deleteTask,
             addTask,
             addProject,
             addWikiPage,

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     MoreHorizontal, ChevronsRight, User, Calendar, Briefcase, Columns,
     CheckCircle2, AlertCircle, FileQuestion, AlignLeft, ListTodo, MessageSquare,
-    X, Plus
+    X, Plus, Link as LinkIcon, Copy, Trash2
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import {
@@ -15,7 +15,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const TaskDetailPanel = () => {
     const {
-        tasks, projects, updateTask, toggleTaskCompletion, setTasks
+        tasks, projects, updateTask, toggleTaskCompletion, setTasks, addTask, deleteTask
     } = useApp();
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -25,6 +25,7 @@ const TaskDetailPanel = () => {
     const selectedTask = taskIdString ? tasks.find(t => t.id === parseInt(taskIdString)) : null;
 
     const [isCreatingSubtask, setIsCreatingSubtask] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     if (!selectedTask) return null;
 
@@ -137,13 +138,76 @@ const TaskDetailPanel = () => {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <button className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">
-                            <MoreHorizontal size={20} />
+                    <div className="flex items-center gap-1">
+                        {/* Link Copy Button */}
+                        <button
+                            onClick={() => {
+                                const url = window.location.href; // Already contains ?task=ID
+                                navigator.clipboard.writeText(url);
+                                alert('リンクをコピーしました'); // Simple feedback
+                            }}
+                            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                            title="リンクをコピー"
+                        >
+                            <LinkIcon size={20} />
                         </button>
+
+                        {/* More Menu */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                            >
+                                <MoreHorizontal size={20} />
+                            </button>
+
+                            {/* Dropdown */}
+                            {isMenuOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
+                                    <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-zinc-800 rounded-xl shadow-xl border border-slate-100 dark:border-zinc-700 z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                                        <button
+                                            onClick={() => {
+                                                const newTask = {
+                                                    ...selectedTask,
+                                                    title: selectedTask.title + ' (コピー)',
+                                                    id: undefined, // Let addTask generate new ID
+                                                    key: undefined, // Let DB generate new Key
+                                                    activities: [],
+                                                    subtasks: []
+                                                };
+                                                // Remove internal IDs
+                                                delete newTask.id;
+                                                delete newTask.created_at;
+
+                                                addTask(newTask);
+                                                setIsMenuOpen(false);
+                                                alert('タスクをコピーしました');
+                                            }}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-700/50 flex items-center gap-2 transition-colors"
+                                        >
+                                            <Copy size={16} /> タスクを複製
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                if (confirm('本当にこのタスクを削除しますか？')) {
+                                                    deleteTask(selectedTask.id);
+                                                    closeDetailPanel();
+                                                }
+                                                setIsMenuOpen(false);
+                                            }}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-2 transition-colors border-t border-slate-100 dark:border-zinc-700/50"
+                                        >
+                                            <Trash2 size={16} /> タスクを削除
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
                         <button
                             onClick={closeDetailPanel}
-                            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors ml-1"
                         >
                             <ChevronsRight size={22} />
                         </button>
