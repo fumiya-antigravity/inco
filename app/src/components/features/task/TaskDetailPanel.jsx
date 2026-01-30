@@ -250,7 +250,7 @@ const TaskDetailPanel = () => {
                             ref={titleRef}
                             value={selectedTask.title}
                             onChange={(e) => updateTask(selectedTask.id, 'title', e.target.value)}
-                            className="w-full text-2xl md:text-3xl font-bold text-slate-800 dark:text-slate-100 bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 rounded-lg px-2 py-1 -ml-2 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none resize-none placeholder-slate-300 transition-all leading-tight"
+                            className="w-full text-2xl md:text-3xl font-bold text-slate-800 dark:text-slate-100 bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 rounded-lg px-4 py-3 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none resize-none placeholder-slate-300 transition-all leading-tight"
                             placeholder="タスク名を入力"
                             rows={1}
                             onInput={(e) => {

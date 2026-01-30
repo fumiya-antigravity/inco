@@ -1,27 +1,62 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
+import type { TaskDB, TaskUI, TaskStatus, TaskPriority, TaskType } from '../types/task';
+import type { Project, Section } from '../types/project';
 
-const AppContext = createContext();
+interface AppContextType {
+    loading: boolean;
+    projects: Project[];
+    tasks: TaskUI[];  // Exposed as TaskUI to components
+    wikiPages: any[];
+    taskStatuses: TaskStatus[];
+    taskPriorities: TaskPriority[];
+    taskTypes: TaskType[];
+    sections: Section[];
+    currentProject: Project | null;
+    currentProjectTasks: TaskUI[];
+    currentStatuses: TaskStatus[];
+    currentPriorities: TaskPriority[];
+    currentTypes: TaskType[];
+    activeProjectId: number | null;
+    setActiveProjectId: (id: number | null) => void;
+    isSidebarOpen: boolean;
+    setIsSidebarOpen: (open: boolean) => void;
+    isMobileMenuOpen: boolean;
+    setIsMobileMenuOpen: (open: boolean) => void;
+    projectsCollapsed: boolean;
+    setProjectsCollapsed: (collapsed: boolean) => void;
+    isDarkMode: boolean;
+    toggleDarkMode: () => void;
+    updateTask: (id: number, field: string, value: any) => Promise<void>;
+    toggleTaskCompletion: (id: number) => Promise<void>;
+    deleteTask: (id: number) => Promise<void>;
+    addTask: (task: Partial<TaskUI>) => Promise<TaskUI | null>;
+    addProject: (project: Partial<Project>) => Promise<{ data?: Project; error?: any }>;
+    addWikiPage: (page: any) => Promise<void>;
+    updateWikiPage: (id: number, updates: any) => Promise<void>;
+}
 
-export const AppProvider = ({ children }) => {
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     // --- UI State ---
-    const [activeProjectId, setActiveProjectId] = useState(null);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [isDarkMode, setIsDarkMode] = useState(false);
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [projectsCollapsed, setProjectsCollapsed] = useState(false);
+    const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+    const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+    const [projectsCollapsed, setProjectsCollapsed] = useState<boolean>(false);
 
     // --- Data State ---
-    const [projects, setProjects] = useState([]);
-    const [tasks, setTasks] = useState([]);
-    const [wikiPages, setWikiPages] = useState([]);
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [tasks, setTasks] = useState<TaskDB[]>([]);
+    const [wikiPages, setWikiPages] = useState<any[]>([]);
 
     // Master Data
-    const [taskStatuses, setTaskStatuses] = useState([]);
-    const [taskPriorities, setTaskPriorities] = useState([]);
-    const [taskTypes, setTaskTypes] = useState([]);
+    const [taskStatuses, setTaskStatuses] = useState<TaskStatus[]>([]);
+    const [taskPriorities, setTaskPriorities] = useState<TaskPriority[]>([]);
+    const [taskTypes, setTaskTypes] = useState<TaskType[]>([]);
 
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState<boolean>(true);
 
     // --- Data Fetching ---
     useEffect(() => {
@@ -66,7 +101,7 @@ export const AppProvider = ({ children }) => {
     };
 
     // --- Actions ---
-    const addProject = async (project) => {
+    const addProject = async (project: Partial<Project>): Promise<{ data?: Project; error?: any }> => {
         const { data, error } = await supabase.from('projects').insert([project]).select().single();
         if (error) {
             console.error('Error adding project:', error);
@@ -88,71 +123,45 @@ export const AppProvider = ({ children }) => {
         return { data };
     };
 
-    const addTask = async (newTask) => {
-        // Optimistic Update with Temp ID
+    const addTask = async (newTask: Partial<TaskUI>): Promise<TaskUI | null> => {
+        // Map UI fields to DB fields for status, priority, type
+        const status = taskStatuses.find(s => s.name === newTask.status && s.project_id === activeProjectId);
+        const priority = newTask.priority === '未選択' ? null : taskPriorities.find(p => p.name === newTask.priority && p.project_id === activeProjectId);
+        const type = newTask.type === '未選択' ? null : taskTypes.find(t => t.name === newTask.type && t.project_id === activeProjectId);
+
+        // Optimistic Update with Temp ID (TaskDB format)
         const tempId = Date.now();
-        const tempTask = {
-            ...newTask,
+        const tempTask: TaskDB = {
             id: tempId,
-            project_id: newTask.projectIds ? newTask.projectIds[0] : activeProjectId,
-            section_id: newTask.sectionId ? newTask.sectionId.toString() : null,
+            project_id: newTask.projectIds ? newTask.projectIds[0] : activeProjectId!,
+            section_id: newTask.sectionId ? parseInt(newTask.sectionId) : null,
+            parent_id: null,
             key: 'Generating...', // Placeholder
+            title: newTask.title || '',
+            description: newTask.description || null,
+            status_id: status?.id || taskStatuses[0]?.id,
+            priority_id: priority?.id || null,
+            type_id: type?.id || null,
             due_date: newTask.due || null,
-            // Preserve UI string values for status, priority, type
-            status: newTask.status || '未対応',
-            priority: newTask.priority || '未選択',
-            type: newTask.type || '未選択',
-            // Ensure other fields are present for UI
+            completed: newTask.completed || false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
             activities: [],
-            created_at: new Date().toISOString()
         };
         setTasks(prev => [tempTask, ...prev]);
 
-        // Prepare task for DB: map UI fields to DB columns
-        const dbTask = {
-            project_id: tempTask.project_id,
-            section_id: tempTask.section_id,
-            // key: Generated by DB trigger
-            title: newTask.title,
-            description: newTask.description,
-            status_id: newTask.status_id,
-            priority_id: newTask.priority_id,
-            type_id: newTask.type_id,
-            due_date: tempTask.due_date,
-            completed: newTask.completed
-        };
-
-        // Map strings to IDs for DB
-        const status = taskStatuses.find(s => s.name === newTask.status && s.project_id === activeProjectId);
-        if (status) dbTask.status_id = status.id;
-
-        // Allow null/unselected priority
-        if (newTask.priority === '未選択') {
-            dbTask.priority_id = null;
-        } else {
-            const priority = taskPriorities.find(p => p.name === newTask.priority && p.project_id === activeProjectId);
-            if (priority) dbTask.priority_id = priority.id;
-        }
-
-        // Allow null/unselected type
-        if (newTask.type === '未選択') {
-            dbTask.type_id = null;
-        } else {
-            const type = taskTypes.find(t => t.name === newTask.type && t.project_id === activeProjectId);
-            if (type) dbTask.type_id = type.id;
-        }
-
+        // Prepare task for DB insert
         const payload = {
-            project_id: dbTask.project_id,
+            project_id: tempTask.project_id,
             parent_id: newTask.parentId || null,
-            title: dbTask.title,
-            description: dbTask.description,
-            status_id: dbTask.status_id,
-            priority_id: dbTask.priority_id,
-            type_id: dbTask.type_id,
-            section_id: dbTask.section_id,
-            due_date: dbTask.due_date,
-            completed: dbTask.completed,
+            title: tempTask.title,
+            description: tempTask.description,
+            status_id: tempTask.status_id,
+            priority_id: tempTask.priority_id,
+            type_id: tempTask.type_id,
+            section_id: tempTask.section_id,
+            due_date: tempTask.due_date,
+            completed: tempTask.completed,
             assignee_id: newTask.assignees && newTask.assignees.length > 0 ? null : null
         };
 
@@ -161,19 +170,28 @@ export const AppProvider = ({ children }) => {
             console.error('Error adding task:', error);
             // Revert optimistic update
             setTasks(prev => prev.filter(t => t.id !== tempId));
-            // In a real app, we might show a toast here
             return null;
         }
 
-        // Replace temp task with real data
+        // Replace temp task with real data and map to UI format
+        const uiTask: TaskUI = {
+            ...data,
+            projectIds: [data.project_id],
+            sectionId: data.section_id?.toString() || '1',
+            due: data.due_date,
+            assignees: [],
+            status: taskStatuses.find(s => s.id === data.status_id)?.name || '未対応',
+            priority: taskPriorities.find(p => p.id === data.priority_id)?.name || '未選択',
+            type: taskTypes.find(t => t.id === data.type_id)?.name || '未選択',
+        };
         setTasks(prev => prev.map(t => t.id === tempId ? data : t));
-        return data;
+        return uiTask;
     };
 
     // Debounce timers
-    const debounceTimers = React.useRef({});
+    const debounceTimers = React.useRef<Record<string, NodeJS.Timeout>>({});
 
-    const updateTask = async (taskId, field, value) => {
+    const updateTask = async (taskId: number, field: string, value: any): Promise<void> => {
         let dbField = field;
         let dbValue = value;
 
@@ -239,7 +257,7 @@ export const AppProvider = ({ children }) => {
         }
     };
 
-    const toggleTaskCompletion = async (taskId) => {
+    const toggleTaskCompletion = async (taskId: number): Promise<void> => {
         const task = tasks.find(t => t.id === taskId);
         if (!task) return;
         const newCompleted = !task.completed;
@@ -247,7 +265,7 @@ export const AppProvider = ({ children }) => {
         await updateTask(taskId, 'completed', newCompleted);
     };
 
-    const deleteTask = async (taskId) => {
+    const deleteTask = async (taskId: number): Promise<void> => {
         // Optimistic update
         setTasks(prev => prev.filter(t => t.id !== taskId));
 
@@ -258,7 +276,7 @@ export const AppProvider = ({ children }) => {
         }
     };
 
-    const addWikiPage = async (page) => {
+    const addWikiPage = async (page: any): Promise<any> => {
         const dbPage = {
             ...page,
             project_id: activeProjectId
@@ -272,7 +290,7 @@ export const AppProvider = ({ children }) => {
         return data;
     };
 
-    const updateWikiPage = async (id, updates) => {
+    const updateWikiPage = async (id: number, updates: any): Promise<void> => {
         setWikiPages(prev => prev.map(p => p.id === id ? { ...p, ...updates, updated_at: new Date() } : p));
 
         const { error } = await supabase.from('wikis').update({ ...updates, updated_at: new Date() }).eq('id', id);
@@ -312,8 +330,9 @@ export const AppProvider = ({ children }) => {
             return {
                 ...t,
                 projectIds: [t.project_id], // Map back to array
-                sectionId: t.section_id || sections[0].id, // Map snake_case to camelCase
+                sectionId: t.section_id?.toString() || sections[0].id, // Map snake_case to camelCase
                 due: t.due_date, // Map due_date to due
+                assignees: [], // TODO: Implement assignee mapping
                 // Add UI string fields
                 status: status?.name || '未対応',
                 priority: priority?.name || '未選択',
@@ -355,11 +374,31 @@ export const AppProvider = ({ children }) => {
     // Theme
     const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
+    // Convert all tasks to UI format for context
+    const tasksUI = useMemo(() => {
+        return tasks.map(t => {
+            const status = taskStatuses.find(s => s.id === t.status_id);
+            const priority = taskPriorities.find(p => p.id === t.priority_id);
+            const type = taskTypes.find(ty => ty.id === t.type_id);
+
+            return {
+                ...t,
+                projectIds: [t.project_id],
+                sectionId: t.section_id?.toString() || '1',
+                due: t.due_date,
+                assignees: [],
+                status: status?.name || '未対応',
+                priority: priority?.name || '未選択',
+                type: type?.name || '未選択',
+            };
+        });
+    }, [tasks, taskStatuses, taskPriorities, taskTypes]);
+
     return (
         <AppContext.Provider value={{
             loading,
             projects,
-            tasks,
+            tasks: tasksUI,
             wikiPages,
             taskStatuses,
             taskPriorities,
@@ -401,4 +440,10 @@ export const AppProvider = ({ children }) => {
     );
 };
 
-export const useApp = () => useContext(AppContext);
+export const useApp = () => {
+    const context = useContext(AppContext);
+    if (!context) {
+        throw new Error('useApp must be used within AppProvider');
+    }
+    return context;
+};

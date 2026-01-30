@@ -4,15 +4,17 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ProjectIcon } from '../components/common/ProjectIcon';
-import { useParams, useNavigate, Outlet, useLocation, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, Outlet, useLocation } from 'react-router-dom';
+import { useTaskCreation } from '../hooks/useTaskCreation';
 
 const ProjectView = () => {
     const { projectId } = useParams();
     const {
-        setActiveProjectId, currentProject, currentProjectTasks, sections, addTask
+        setActiveProjectId, currentProject, currentProjectTasks, sections
     } = useApp();
     const navigate = useNavigate();
     const location = useLocation();
+    const { createTask } = useTaskCreation();
 
     // Sync URL param with Context
     useEffect(() => {
@@ -22,29 +24,12 @@ const ProjectView = () => {
     }, [projectId, setActiveProjectId]);
 
     const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
-    const [searchParams, setSearchParams] = useSearchParams();
 
-    // Handle task creation
+    // Handle task creation using custom hook
     const handleCreateTask = async () => {
-        const tempId = Date.now();
-        const newTask = {
-            id: tempId,
-            projectIds: [currentProject.id],
-            sectionId: sections[0]?.id || '1', // Use first section
-            key: 'NEW',
-            title: '',
-            assignees: [],
-            status: '未対応',
-            completed: false,
-            priority: '未選択',
-            type: '未選択',
-            due: '',
-            isTemp: true
-        };
-        const createdTask = await addTask(newTask);
-        // Use the actual task ID if available, otherwise use tempId
-        const taskId = createdTask?.id || tempId;
-        setSearchParams({ task: taskId.toString() });
+        await createTask({
+            sectionId: sections[0]?.id || '1'
+        });
     };
 
     // Determine active tab based on URL

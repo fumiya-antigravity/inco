@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
     ChevronDown, Plus, User, MoreHorizontal, Calendar, CheckCircle2, ChevronUp
 } from 'lucide-react';
@@ -7,10 +7,12 @@ import {
     TypeSelector, PrioritySelector, StatusSelector, InlineTaskCreator, CompletionCheckButton, AssigneeSelector
 } from '../task/SharedComponents';
 import { useSearchParams } from 'react-router-dom';
+import { useTaskSorting } from '../../../hooks/useTaskSorting';
+import { useTaskCreation } from '../../../hooks/useTaskCreation';
 
 const SortableHeader = ({ label, sortKey, width, currentSortKey, sortOrder, onSort, centered = false }) => (
     <th
-        className={`p-4 font-bold text-slate-500 dark:text-slate-400 cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors ${width}`}
+        className={`p-4 font-bold text-slate-500 dark:text-slate-400 cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors border-b border-slate-200 dark:border-zinc-700 ${width}`}
         onClick={() => onSort(sortKey)}
     >
         <div className={`flex items-center gap-1 ${centered ? 'justify-center' : ''}`}>
@@ -24,7 +26,7 @@ const SortableHeader = ({ label, sortKey, width, currentSortKey, sortOrder, onSo
 
 const ListView = () => {
     const {
-        sections, currentProjectTasks, updateTask, addTask, activeProjectId, toggleTaskCompletion
+        sections, currentProjectTasks, updateTask, toggleTaskCompletion
     } = useApp();
     const [searchParams, setSearchParams] = useSearchParams();
     const selectedTaskId = searchParams.get('task') ? parseInt(searchParams.get('task')) : null;
@@ -32,78 +34,20 @@ const ListView = () => {
     const [draggedTaskId, setDraggedTaskId] = useState(null);
     const [dragOverSectionId, setDragOverSectionId] = useState(null);
     const [creatingTaskId, setCreatingTaskId] = useState(null);
-    const [editingTaskId, setEditingTaskId] = useState(null);
 
-    // Default sort by created_at descending (newest first)
-    const [sortKey, setSortKey] = useState('created_at');
-    const [sortOrder, setSortOrder] = useState('desc');
+    // Use custom hooks
+    const { sortedTasks, sortKey, sortOrder, handleSort } = useTaskSorting(
+        currentProjectTasks,
+        'created_at',
+        'desc'
+    );
+    const { createTask } = useTaskCreation();
 
-    const handleSort = (key) => {
-        if (sortKey === key) {
-            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortKey(key);
-            setSortOrder('asc');
-        }
-    };
-
-    const sortedTasks = useMemo(() => {
-        return [...currentProjectTasks].sort((a, b) => {
-            // First, sort by section to keep sections together
-            if (a.sectionId !== b.sectionId) {
-                return 0; // Let sections maintain their order
-            }
-
-            // Within the same section, always prioritize created_at for newest first
-            // unless user explicitly sorts by another field
-            if (sortKey === 'created_at') {
-                const aCreated = new Date(a.created_at || 0).getTime();
-                const bCreated = new Date(b.created_at || 0).getTime();
-                return sortOrder === 'asc' ? aCreated - bCreated : bCreated - aCreated;
-            }
-
-            // For other sort keys, use the selected field
-            let aVal = a[sortKey];
-            let bVal = b[sortKey];
-
-            // Handle array comparison (e.g., assignees)
-            if (Array.isArray(aVal)) aVal = aVal[0] || '';
-            if (Array.isArray(bVal)) bVal = bVal[0] || '';
-
-            // If values are equal, use created_at as secondary sort (newest first)
-            if (aVal === bVal) {
-                const aCreated = new Date(a.created_at || 0).getTime();
-                const bCreated = new Date(b.created_at || 0).getTime();
-                return bCreated - aCreated; // Descending (newest first)
-            }
-
-            if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
-            if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
-            return 0;
-        });
-    }, [currentProjectTasks, sortKey, sortOrder]);
-
-    // Inline Create Handlers (Duplicated from Board for now, ideal to extract logic hook)
+    // Inline Create Handler using custom hook
     const startInlineCreate = async (sectionId) => {
-        const tempId = Date.now();
-        const newTask = {
-            id: tempId,
-            projectIds: [activeProjectId],
-            sectionId: sectionId,
-            key: 'NEW',
-            title: '',
-            assignees: [],
-            status: '未対応', // Fixed to always use '未対応'
-            completed: false,
-            priority: '未選択',
-            type: '未選択',
-            due: '',
-            isTemp: true
-        };
-        const createdTask = await addTask(newTask);
-        // Use the actual task ID if available, otherwise use tempId
-        const taskId = createdTask?.id || tempId;
-        setSearchParams({ task: taskId.toString() }); // Open detail panel
+        await createTask({
+            sectionId: sectionId
+        });
     };
 
     const handleTaskCreateUpdate = (id, title) => {
@@ -213,7 +157,7 @@ const ListView = () => {
                                         <tr
                                             key={task.id}
                                             data-task-row="true" // Identifier for click-outside logic
-                                            draggable={creatingTaskId !== task.id && editingTaskId !== task.id}
+                                            draggable={creatingTaskId !== task.id}
                                             onDragStart={(e) => handleDragStart(e, task.id)}
                                             onDragOver={(e) => handleDragOver(e, section.id)}
                                             onDrop={(e) => handleDrop(e, section.id)}
@@ -224,7 +168,7 @@ const ListView = () => {
                           ${selectedTaskId === task.id ? 'bg-emerald-50/50 dark:bg-emerald-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'}
                         `}
                                             onClick={() => {
-                                                if (creatingTaskId !== task.id && editingTaskId !== task.id) handleTaskClick(task);
+                                                if (creatingTaskId !== task.id) handleTaskClick(task);
                                             }}
                                         >
                                             {creatingTaskId === task.id ? (
@@ -244,45 +188,9 @@ const ListView = () => {
                                                     </td>
                                                     <td className="p-4 font-mono text-slate-500 dark:text-slate-400 text-xs cursor-grab active:cursor-grabbing text-center truncate">{task.key}</td>
                                                     <td className="p-4">
-                                                        {/* Removed onClick stopPropagation from TD to allow cell padding click to open detail */}
-                                                        {editingTaskId === task.id ? (
-                                                            <div onClick={(e) => e.stopPropagation()} className="w-full">
-                                                                <input
-                                                                    autoFocus
-                                                                    type="text"
-                                                                    value={task.title}
-                                                                    className="w-[75%] bg-white dark:bg-zinc-800 border-none rounded focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 dark:text-slate-100 px-1 py-0.5"
-                                                                    onChange={(e) => {
-                                                                        updateTask(task.id, 'title', e.target.value);
-                                                                    }}
-                                                                    onBlur={(e) => {
-                                                                        // updateTask is already called by onChange.
-                                                                        // Just close edit mode.
-                                                                        setEditingTaskId(null);
-                                                                    }}
-                                                                    onKeyDown={(e) => {
-                                                                        if (e.key === 'Enter') {
-                                                                            e.currentTarget.blur();
-                                                                        }
-                                                                        if (e.key === 'Escape') {
-                                                                            setEditingTaskId(null);
-                                                                        }
-                                                                    }}
-                                                                />
-                                                            </div>
-                                                        ) : (
-                                                            <span
-                                                                // Edit trigger
-                                                                onClick={(e) => {
-                                                                    // Enable inline editing mode
-                                                                    setEditingTaskId(task.id);
-                                                                    // Also let the row click handler open the detail panel
-                                                                }}
-                                                                className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors block w-fit max-w-full truncate cursor-text hover:underline decoration-dashed underline-offset-4 decoration-slate-300"
-                                                            >
-                                                                {task.title || <span className="text-slate-400 italic">無題</span>}
-                                                            </span>
-                                                        )}
+                                                        <span className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors block w-fit max-w-full truncate">
+                                                            {task.title || <span className="text-slate-400 italic">無題</span>}
+                                                        </span>
                                                     </td>
                                                     <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
                                                         <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
