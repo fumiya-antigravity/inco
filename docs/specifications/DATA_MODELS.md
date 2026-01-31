@@ -15,13 +15,24 @@
 | `current_task_number` | INTEGER | DEFAULT 0 | 現在のタスク連番の最大値。タスク追加時にインクリメントされる。 |
 | `created_at` | TIMESTAMPTZ | DEFAULT NOW() | 作成日時 |
 
+### TaskProjects (タスク・プロジェクト関連)
+タスクとプロジェクトの多対多関係を管理する中間テーブルです。
+
+| カラム名 | 型 | 制約 | 説明 |
+| :--- | :--- | :--- | :--- |
+| `id` | BIGINT | PK | 自動採番 |
+| `task_id` | BIGINT | FK | タスクID |
+| `project_id` | BIGINT | FK | プロジェクトID |
+| `position` | INTEGER | DEFAULT 0 | 優先順位（メインプロジェクト判別用） |
+| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | 作成日時 |
+
 ### Tasks (タスク)
 個々の作業アイテムです。
 
 | カラム名 | 型 | 制約 | 説明 |
 | :--- | :--- | :--- | :--- |
 | `id` | BIGINT | PK | 自動採番 |
-| `project_id` | BIGINT | FK | 所属プロジェクト |
+| `project_id` | BIGINT | FK | メインプロジェクト（互換性のため保持、実態は `task_projects` で管理） |
 | `key` | TEXT | **UNIQUE**, NOT NULL | タスクキー (例: `INCO-123`)。DBトリガーにより自動生成。 |
 | `title` | TEXT | NOT NULL | タスク名 |
 | ... | ... | ... | ... |

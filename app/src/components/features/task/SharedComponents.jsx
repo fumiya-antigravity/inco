@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
-    Check, ChevronDown, CheckCircle2, AlertCircle, FileQuestion, HelpCircle, User, X
+    Check, ChevronDown, CheckCircle2, AlertCircle, FileQuestion, HelpCircle, User, X, ChevronLeft, ChevronRight, Calendar as CalendarIcon
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 
@@ -99,28 +99,195 @@ export const AssigneeSelector = ({ task, isDetailView = false, readOnly = false 
                     <div className="max-h-[200px] overflow-y-auto p-1">
                         <button
                             onClick={handleClear}
-                            className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50:bg-zinc-700/50 rounded flex items-center gap-2 mb-1"
+                            className="w-full text-left px-3 py-2 text-xs text-slate-500 hover:bg-slate-50 rounded flex items-center gap-2 mb-1"
                         >
-                            <span className="w-6 h-6 rounded-full border border-dashed border-slate-300 flex items-center justify-center">
-                                <X size={12} />
-                            </span>
-                            未割当にする
+                            <X size={12} />
+                            割り当てを解除
                         </button>
-
-                        {filteredMembers.length > 0 ? filteredMembers.map(member => (
+                        {filteredMembers.map((member) => (
                             <button
                                 key={member.id}
                                 onClick={() => handleSelect(member.name)}
-                                className="w-full text-left px-2 py-1.5 text-xs text-slate-700 hover:bg-emerald-50 rounded flex items-center gap-2 transition-colors"
+                                className="w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 hover:text-emerald-700 rounded flex items-center gap-2"
                             >
-                                <div className={`w-6 h-6 rounded-full bg-${member.avatar_color}-100 text-${member.avatar_color}-600 flex items-center justify-center text-[10px] font-bold`}>
+                                <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold">
                                     {member.name.charAt(0)}
                                 </div>
                                 {member.name}
                             </button>
-                        )) : (
-                            <div className="p-4 text-center text-xs text-slate-400">ユーザが見つかりません</div>
-                        )}
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// --- Custom Calendar ---
+const CustomCalendar = ({ value, onChange, onClose }) => {
+    const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
+
+    // Update view if value changes externally
+    useEffect(() => {
+        if (value && !isNaN(new Date(value).getTime())) {
+            setViewDate(new Date(value));
+        }
+    }, [value]);
+
+    const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+    const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+
+    const daysInMonth = getDaysInMonth(year, month);
+    const firstDay = getFirstDayOfMonth(year, month);
+
+    const days = [];
+    // Padding for previous month
+    for (let i = 0; i < firstDay; i++) {
+        days.push(<div key={`empty-${i}`} className="w-8 h-8" />);
+    }
+
+    // Days
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const isSelected = value === dateString;
+        const isToday = new Date().toISOString().split('T')[0] === dateString;
+
+        days.push(
+            <button
+                key={d}
+                onClick={() => {
+                    onChange(dateString);
+                    onClose();
+                }}
+                className={`
+                    w-8 h-8 rounded-full text-xs flex items-center justify-center transition-colors
+                    ${isSelected ? 'bg-emerald-500 text-white font-bold shadow-sm' : 'hover:bg-slate-100 text-slate-700'}
+                    ${isToday && !isSelected ? 'text-emerald-600 font-bold bg-emerald-50' : ''}
+                `}
+            >
+                {d}
+            </button>
+        );
+    }
+
+    return (
+        <div className="p-3 w-64 pb-0">
+            <div className="flex items-center justify-between mb-3 px-1">
+                <button
+                    onClick={() => setViewDate(new Date(year, month - 1))}
+                    className="p-1 hover:bg-slate-100 rounded text-slate-500 transition-colors"
+                >
+                    <ChevronLeft size={16} />
+                </button>
+                <span className="text-sm font-bold text-slate-700">
+                    {year}年 {month + 1}月
+                </span>
+                <button
+                    onClick={() => setViewDate(new Date(year, month + 1))}
+                    className="p-1 hover:bg-slate-100 rounded text-slate-500 transition-colors"
+                >
+                    <ChevronRight size={16} />
+                </button>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1 mb-2">
+                {['日', '月', '火', '水', '木', '金', '土'].map(day => (
+                    <div key={day} className="w-8 text-center text-[10px] text-slate-400 font-medium">
+                        {day}
+                    </div>
+                ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-1">
+                {days}
+            </div>
+
+            <div className="mt-3 pt-2 border-t border-slate-100 flex justify-center mb-1">
+                <button
+                    onClick={() => {
+                        const today = new Date();
+                        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                        onChange(todayStr);
+                        onClose();
+                    }}
+                    className="text-xs text-emerald-600 hover:text-emerald-700 font-medium py-1 px-3 hover:bg-emerald-50 rounded transition-colors"
+                >
+                    今日
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// --- Due Date Selector ---
+export const DueDateSelector = ({ task, isDetailView = false }) => {
+    const { updateTask } = useApp();
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef(null);
+    useClickOutside(containerRef, () => setIsOpen(false));
+
+    const handleDateSelect = (dateString) => {
+        updateTask(task.id, 'due', dateString);
+        setIsOpen(false);
+    };
+
+    const handleClear = () => {
+        updateTask(task.id, 'due', null);
+        setIsOpen(false);
+    };
+
+    const handleInputChange = (e) => {
+        updateTask(task.id, 'due', e.target.value);
+    };
+
+    return (
+        <div className="relative" ref={containerRef}>
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setIsOpen(!isOpen);
+                }}
+                className={`flex items-center gap-2 transition-colors ${!task.due ? 'text-slate-400' : 'text-slate-600'}`}
+            >
+                <span className="text-sm">{task.due || '未設定'}</span>
+            </button>
+
+            {isOpen && (
+                <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-slate-200 z-50 animate-in fade-in zoom-in-95 duration-100 overflow-hidden"
+                >
+                    <div className="p-3 border-b border-slate-100 bg-slate-50/50">
+                        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded px-2 py-1.5 focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-all">
+                            <CalendarIcon size={14} className="text-slate-400" />
+                            <input
+                                autoFocus
+                                type="text"
+                                placeholder="YYYY-MM-DD"
+                                value={task.due || ''}
+                                onChange={handleInputChange}
+                                className="w-full text-sm outline-none text-slate-700 placeholder:text-slate-400"
+                            />
+                        </div>
+                    </div>
+
+                    <CustomCalendar
+                        value={task.due}
+                        onChange={handleDateSelect}
+                        onClose={() => setIsOpen(false)}
+                    />
+
+                    <div className="p-2 border-t border-slate-100 text-center bg-slate-50/30">
+                        <button
+                            onClick={handleClear}
+                            className="text-xs text-slate-500 hover:text-red-500 flex items-center justify-center gap-1 w-full py-1.5 hover:bg-slate-100 rounded transition-colors"
+                        >
+                            <X size={12} />
+                            期限日をクリア
+                        </button>
                     </div>
                 </div>
             )}

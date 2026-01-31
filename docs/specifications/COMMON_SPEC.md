@@ -56,7 +56,7 @@ export interface Project {
 | カラム名 | 型 | 制約 | 説明 |
 |---------|-----|------|------|
 | `id` | BIGINT | PK | 自動採番 |
-| `project_id` | BIGINT | FK | 所属プロジェクト |
+| `project_id` | BIGINT | FK | 主プロジェクトID (後方互換用) |
 | `parent_id` | BIGINT | FK (nullable) | 親タスクID (サブタスク用) |
 | `section_id` | BIGINT | FK (nullable) | セクションID |
 | `key` | TEXT | UNIQUE, NOT NULL | タスクキー (例: `INCO-123`) |
@@ -110,7 +110,7 @@ export interface TaskUI {
     activities: Activity[];
     
     // UI-specific fields
-    projectIds: number[];
+    projectIds: number[]; // 複数のプロジェクトID
     sectionId: string;
     due: string | null;
     assignees: string[];
@@ -177,7 +177,16 @@ export interface Section {
 **実装ファイル**:
 - [`src/components/features/task/SharedComponents.jsx`](file:///Users/fumiyatanaka/Google_Antigravity/INCO/app/src/components/features/task/SharedComponents.jsx) - `AssigneeSelector`
 
-### 3.2 種別 (Type)
+### 3.2 プロジェクト (Projects)
+
+- **初期値**: 作成元のプロジェク (Created within context)
+- **データ型**: `number[]` (プロジェクトIDの配列)
+- **挙動**: 複数選択可能、最低1つ必須
+
+**実装ファイル**:
+- [`src/components/features/task/SharedComponents.jsx`](file:///Users/fumiyatanaka/Google_Antigravity/INCO/app/src/components/features/task/SharedComponents.jsx) - `ProjectSelector`
+
+### 3.3 種別 (Type)
 
 - **初期値**: `未選択` (Unselected)
 - **選択肢**: `バグ` (Bug), `タスク` (Task), `要望` (Feature), `その他` (Other)

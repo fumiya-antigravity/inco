@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import {
-    TypeSelector, PrioritySelector, StatusSelector, SectionSelector, CompletionCheckButton, AssigneeSelector, ProjectSelector
+    TypeSelector, PrioritySelector, StatusSelector, SectionSelector, CompletionCheckButton, AssigneeSelector, ProjectSelector, DueDateSelector
 } from './SharedComponents';
 import {
     SubtaskItem, SubtaskInput, ActivityItem, CommentInput
@@ -278,7 +278,7 @@ const TaskDetailPanel = () => {
                                 <span>期限日</span>
                             </div>
                             <div className="flex-1">
-                                <span className="text-slate-600 text-sm">{selectedTask.due || '未設定'}</span>
+                                <DueDateSelector task={selectedTask} isDetailView={true} />
                             </div>
                         </div>
 
