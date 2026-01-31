@@ -1,0 +1,427 @@
+import React, { useState } from 'react';
+import {
+ MoreHorizontal, ChevronsRight, User, Calendar, Briefcase, Columns,
+ CheckCircle2, AlertCircle, FileQuestion, AlignLeft, ListTodo, MessageSquare,
+ X, Plus, Link as LinkIcon, Copy, Trash2
+} from 'lucide-react';
+import { useApp } from '../../../context/AppContext';
+import {
+ TypeSelector, PrioritySelector, StatusSelector, SectionSelector, CompletionCheckButton, AssigneeSelector
+} from './SharedComponents';
+import {
+ DetailRow, SubtaskItem, SubtaskInput, ActivityItem, CommentInput
+} from './TaskDetailComponents';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+
+const TaskDetailPanel = () => {
+ const {
+ tasks, currentProjectTasks, projects, updateTask, toggleTaskCompletion, setTasks, addTask, deleteTask
+ } = useApp();
+ const [searchParams, setSearchParams] = useSearchParams();
+
+
+ // Get selected task from URL query param '?task=ID'
+ const taskIdString = searchParams.get('task');
+ // Use currentProjectTasks to ensure we have mapped fields like sectionId (vs section_id)
+ const selectedTask = taskIdString ? currentProjectTasks.find(t => t.id === parseInt(taskIdString)) : null;
+
+ const [isCreatingSubtask, setIsCreatingSubtask] = useState(false);
+ const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+ // Moved hooks before early return to comply with Rules of Hooks
+ const panelRef = React.useRef(null);
+ const titleRef = React.useRef(null); // Add ref for title field
+
+ React.useEffect(() => {
+ const handleClickOutside = (event) => {
+ // Check if click is outside panel
+ if (panelRef.current && !panelRef.current.contains(event.target)) {
+ // IMPORTANT: Check if the click target is part of a Task Row
+ // If it is, we DO NOT close here, because the row's onClick handler will switch the task.
+ if (event.target.closest('[data-task-row="true"]')) {
+ return;
+ }
+ closeDetailPanel();
+ }
+ };
+
+ // Use mousedown to capture interaction before click fires, 
+ // effectively handling "outside" interaction
+ document.addEventListener('mousedown', handleClickOutside);
+ return () => document.removeEventListener('mousedown', handleClickOutside);
+ }, [searchParams]);
+
+ // Auto-focus on title field for new tasks
+ React.useEffect(() => {
+ if (selectedTask && !selectedTask.title && titleRef.current) {
+ titleRef.current.focus();
+ }
+ }, [selectedTask?.id]);
+
+ if (!selectedTask) return null;
+
+ const closeDetailPanel = () => {
+ const newParams = new URLSearchParams(searchParams);
+ newParams.delete('task');
+ setSearchParams(newParams);
+ };
+
+ // --- Local Logic Wrappers ---
+ // In a real app, these would interact with the API
+ const addSubtask = (taskId, title) => {
+ const newSubtask = { id: Date.now(), title, completed: false };
+ const updatedTasks = tasks.map(t => {
+ if (t.id === taskId) {
+ return { ...t, subtasks: [...(t.subtasks || []), newSubtask] };
+ }
+ return t;
+ });
+ setTasks(updatedTasks); // Direct update for now, ideally use updateTask action
+ setIsCreatingSubtask(false);
+ };
+
+ const toggleSubtask = (taskId, subtaskId) => {
+ const updatedTasks = tasks.map(t => {
+ if (t.id === taskId) {
+ const newSubtasks = t.subtasks.map(st =>
+ st.id === subtaskId ? { ...st, completed: !st.completed } : st
+ );
+ return { ...t, subtasks: newSubtasks };
+ }
+ return t;
+ });
+ setTasks(updatedTasks);
+ };
+
+ const deleteSubtask = (taskId, subtaskId) => {
+ const updatedTasks = tasks.map(t => {
+ if (t.id === taskId) {
+ return { ...t, subtasks: t.subtasks.filter(st => st.id !== subtaskId) };
+ }
+ return t;
+ });
+ setTasks(updatedTasks);
+ };
+
+ const addComment = (taskId, text) => {
+ const newActivity = {
+ id: Date.now(),
+ type: 'comment',
+ user: 'ME',
+ text,
+ timestamp: new Date()
+ };
+ const updatedTasks = tasks.map(t => {
+ if (t.id === taskId) {
+ return { ...t, activities: [...(t.activities || []), newActivity] };
+ }
+ return t;
+ });
+ setTasks(updatedTasks);
+ };
+
+ // Check values for styling
+ const assignees = selectedTask.assignees || [];
+ const hasAssignee = assignees.length > 0;
+ const hasDueDate = !!selectedTask.due;
+ const taskProjects = selectedTask.projectIds || [];
+ const hasProject = taskProjects.length > 0;
+    const hasSection = selectedTask.section_id != null;
+    const hasStatus = selectedTask.status_id != null;
+    const hasPriority = selectedTask.priority_id != null;
+    const hasType = selectedTask.type_id != null;
+ const subtasks = selectedTask.subtasks || [];
+ const activities = selectedTask.activities || [];
+
+ // Sort activities by timestamp (newest first)
+ // Sort activities by timestamp (newest first)
+ const sortedActivities = [...activities].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+ return (
+
+ <>
+ {/* Panel - No blocking backdrop */}
+ <div
+ ref={panelRef}
+ className="
+ fixed top-14 bottom-0 right-0 z-40 
+ w-full sm:w-[380px] md:w-[450px] lg:w-[550px]
+ bg-white 
+ border-l border-slate-200 
+ shadow-2xl rounded-tl-2xl
+ flex flex-col
+ animate-in slide-in-from-right duration-200
+ ">
+ {/* Header */}
+ <div className="h-16 flex items-center justify-between px-8 border-b border-slate-100 flex-shrink-0 bg-white rounded-tl-2xl">
+ <div className="flex items-center gap-4">
+ {/* New Completion Button (Simple Circle Check) */}
+ <CompletionCheckButton
+ isCompleted={selectedTask.completed}
+ onClick={() => toggleTaskCompletion(selectedTask.id)}
+ size="lg"
+ />
+
+ <div className="h-4 w-px bg-slate-200 "></div>
+
+ <div className="flex items-center gap-2 text-xs text-slate-500 ">
+ <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded-md">{selectedTask.key}</span>
+ <span className="hidden sm:inline">作成日: {new Date().toLocaleDateString()}</span>
+ </div>
+ </div>
+
+ <div className="flex items-center gap-1">
+ {/* Link Copy Button */}
+ <button
+ onClick={() => {
+ const url = window.location.href; // Already contains ?task=ID
+ navigator.clipboard.writeText(url);
+ alert('リンクをコピーしました'); // Simple feedback
+ }}
+ className="p-2 text-slate-400 hover:text-slate-600 :text-slate-300 rounded-full hover:bg-slate-100 :bg-zinc-800 transition-colors"
+ title="リンクをコピー"
+ >
+ <LinkIcon size={20} />
+ </button>
+
+ {/* More Menu */}
+ <div className="relative">
+ <button
+ onClick={() => setIsMenuOpen(!isMenuOpen)}
+ className="p-2 text-slate-400 hover:text-slate-600 :text-slate-300 rounded-full hover:bg-slate-100 :bg-zinc-800 transition-colors"
+ >
+ <MoreHorizontal size={20} />
+ </button>
+
+ {/* Dropdown */}
+ {isMenuOpen && (
+ <>
+ <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
+ <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+ <button
+ onClick={() => {
+ const newTask = {
+ ...selectedTask,
+ title: selectedTask.title + ' (コピー)',
+ id: undefined, // Let addTask generate new ID
+ key: undefined, // Let DB generate new Key
+ activities: [],
+ subtasks: []
+ };
+ // Remove internal IDs
+ delete newTask.id;
+ delete newTask.created_at;
+
+ addTask(newTask);
+ setIsMenuOpen(false);
+ alert('タスクをコピーしました');
+ }}
+ className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 :bg-zinc-700/50 flex items-center gap-2 transition-colors"
+ >
+ <Copy size={16} /> タスクを複製
+ </button>
+ <button
+ onClick={() => {
+ if (confirm('本当にこのタスクを削除しますか？')) {
+ deleteTask(selectedTask.id);
+ closeDetailPanel();
+ }
+ setIsMenuOpen(false);
+ }}
+ className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 :bg-red-900/10 flex items-center gap-2 transition-colors border-t border-slate-100 /50"
+ >
+ <Trash2 size={16} /> タスクを削除
+ </button>
+ </div>
+ </>
+ )}
+ </div>
+
+ <button
+ onClick={closeDetailPanel}
+ className="p-2 text-slate-400 hover:text-slate-600 :text-slate-300 rounded-full hover:bg-slate-100 :bg-zinc-800 transition-colors ml-1"
+ >
+ <ChevronsRight size={22} />
+ </button>
+ </div>
+ </div>
+
+ {/* Body */}
+ <div className="flex-1 overflow-y-auto p-8 md:p-10 bg-white ">
+ {/* Title Input */}
+ <div className="mb-8 group">
+ <textarea
+ ref={titleRef}
+ value={selectedTask.title}
+ onChange={(e) => updateTask(selectedTask.id, 'title', e.target.value)}
+ className="w-full text-2xl md:text-3xl font-bold text-slate-800 bg-transparent border border-transparent hover:border-slate-200 :border-zinc-700 rounded-lg px-4 py-3 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none resize-none placeholder-slate-300 transition-all leading-tight"
+ placeholder="タスク名を入力"
+ rows={1}
+ onInput={(e) => {
+ e.target.style.height = 'auto';
+ e.target.style.height = e.target.scrollHeight + 'px';
+ }}
+ />
+ </div>
+
+ {/* Properties Grid - Center aligned */}
+ <div className="grid grid-cols-[auto_1fr] gap-y-3 gap-x-6 mb-12 text-sm">
+
+ {/* Assignee (Multiple) */}
+ <DetailRow
+ icon={User}
+ label="担当者"
+ hasValue={hasAssignee}
+ onAdd={() => alert('未実装')}
+ >
+ <AssigneeSelector task={selectedTask} isDetailView={true} />
+ </DetailRow>
+
+ {/* Due Date */}
+ <DetailRow
+ icon={Calendar}
+ label="期限日"
+ hasValue={hasDueDate}
+ onClear={() => updateTask(selectedTask.id, 'due', '')}
+ >
+ {hasDueDate ? (
+ <span>{selectedTask.due}</span>
+ ) : (
+ <span>未設定</span>
+ )}
+ </DetailRow>
+
+ {/* Project (Multiple) */}
+ <DetailRow
+ icon={Briefcase}
+ label="プロジェクト"
+ hasValue={hasProject}
+ onAdd={() => alert('未実装')}
+ >
+ <div className="flex flex-wrap gap-1.5 py-1">
+ {taskProjects.map(pid => {
+ const p = projects.find(prj => prj.id === pid);
+ return p ? (
+ <div key={pid} className="flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded text-xs group/tag">
+ <span className="font-medium">{p.name}</span>
+ </div>
+ ) : null;
+ })}
+ </div>
+ </DetailRow>
+
+                    {/* Section */}
+                    <DetailRow
+                        icon={Columns}
+                        label="セクション"
+                        hasValue={hasSection}
+                        onClear={() => updateTask(selectedTask.id, 'section', null)}
+                    >
+                        <SectionSelector task={selectedTask} isDetailView={true} />
+                    </DetailRow>
+
+                    {/* Status */}
+                    <DetailRow
+                        icon={CheckCircle2}
+                        label="ステータス"
+                        hasValue={hasStatus}
+                    >
+                        <StatusSelector task={selectedTask} isDetailView={true} />
+                    </DetailRow>
+                    {/* Priority */}
+                    <DetailRow
+                        icon={AlertCircle}
+                        label="優先度"
+                        hasValue={hasPriority}
+                        onClear={() => updateTask(selectedTask.id, 'priority', null)}
+                    >
+                        <PrioritySelector task={selectedTask} isDetailView={true} />
+                    </DetailRow>
+                    {/* Type */}
+                    <DetailRow
+                        icon={FileQuestion}
+                        label="種別"
+                        hasValue={hasType}
+                        onClear={() => updateTask(selectedTask.id, 'type', null)}
+                    >
+                        <TypeSelector task={selectedTask} isDetailView={true} />
+                    </DetailRow>
+ </div>
+
+ {/* Description */}
+ <div className="mb-12">
+ <div className="flex items-center gap-2 text-slate-500 font-bold text-sm mb-2">
+ <AlignLeft size={16} /> 詳細
+ </div>
+ <div className="bg-slate-50 /50 rounded-xl p-4 border border-slate-100 min-h-[150px] group focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-all">
+ <textarea
+ value={selectedTask.description || ''}
+ onChange={(e) => updateTask(selectedTask.id, 'description', e.target.value)}
+ className="w-full h-full bg-transparent border-none outline-none text-slate-700 text-sm leading-relaxed resize-none min-h-[120px]"
+ placeholder="詳細を入力してください..."
+ />
+ </div>
+ </div>
+
+ {/* Subtasks (Enhanced) */}
+ <div className="mb-12">
+ <div className="flex items-center gap-2 text-slate-500 font-bold text-sm mb-2 group">
+ <ListTodo size={16} /> サブタスク
+ <button
+ onClick={() => setIsCreatingSubtask(true)}
+ className="ml-2 p-0.5 rounded hover:bg-slate-200 :bg-zinc-700 text-slate-400 hover:text-emerald-600 transition-colors"
+ title="サブタスクを追加"
+ >
+ <Plus size={14} />
+ </button>
+ </div>
+ <div className="pl-1 space-y-1">
+ {subtasks.map(st => (
+ <SubtaskItem
+ key={st.id}
+ subtask={st}
+ onToggle={(sid) => toggleSubtask(selectedTask.id, sid)}
+ onDelete={(sid) => deleteSubtask(selectedTask.id, sid)}
+ />
+ ))}
+ {isCreatingSubtask && (
+ <SubtaskInput
+ onAdd={(title) => addSubtask(selectedTask.id, title)}
+ onCancel={() => setIsCreatingSubtask(false)}
+ />
+ )}
+ </div>
+ </div>
+
+ {/* Activity & Comments (Enhanced) */}
+ <div className="bg-slate-50 /30 -mx-8 -mb-10 p-8 border-t border-slate-100 ">
+ <div className="flex items-center justify-between mb-4">
+ <div className="text-slate-500 font-bold text-sm flex items-center gap-2">
+ <MessageSquare size={16} /> アクティビティ
+ </div>
+ </div>
+
+ {/* Comment Input */}
+ <CommentInput onPost={(text) => addComment(selectedTask.id, text)} />
+
+ {/* Timeline */}
+ <div className="mt-8 space-y-6 relative before:absolute before:left-[15px] before:top-4 before:bottom-0 before:w-0.5 before:bg-slate-200 :bg-zinc-700">
+ {sortedActivities.map((activity, index) => (
+ <div key={activity.id} className="relative z-10">
+ <ActivityItem
+ activity={activity}
+ onEdit={() => alert('未実装')}
+ onDelete={() => alert('未実装')}
+ />
+ </div>
+ ))}
+ </div>
+ </div>
+
+ </div>
+ </div>
+ </>
+ );
+};
+
+export default TaskDetailPanel;

@@ -3,20 +3,41 @@ import { supabase } from '../supabaseClient';
 import type { TaskDB, TaskUI, TaskStatus, TaskPriority, TaskType } from '../types/task';
 import type { Project, Section } from '../types/project';
 
+interface ProjectMember {
+    id: number;
+    project_id: number;
+    name: string;
+    email: string | null;
+    avatar_color: string;
+    position: number;
+    created_at: string;
+}
+
+interface TaskProject {
+    id: number;
+    task_id: number;
+    project_id: number;
+    position: number;
+    created_at: string;
+}
+
 interface AppContextType {
     loading: boolean;
     projects: Project[];
-    tasks: TaskUI[];  // Exposed as TaskUI to components
+    tasks: TaskUI[]; // Exposed as TaskUI to components
     wikiPages: any[];
     taskStatuses: TaskStatus[];
     taskPriorities: TaskPriority[];
     taskTypes: TaskType[];
     sections: Section[];
+    members: ProjectMember[];
+    taskProjects: TaskProject[];
     currentProject: Project | null;
     currentProjectTasks: TaskUI[];
     currentStatuses: TaskStatus[];
     currentPriorities: TaskPriority[];
     currentTypes: TaskType[];
+    currentMembers: ProjectMember[];
     activeProjectId: number | null;
     setActiveProjectId: (id: number | null) => void;
     isSidebarOpen: boolean;
@@ -25,13 +46,13 @@ interface AppContextType {
     setIsMobileMenuOpen: (open: boolean) => void;
     projectsCollapsed: boolean;
     setProjectsCollapsed: (collapsed: boolean) => void;
-    isDarkMode: boolean;
-    toggleDarkMode: () => void;
     updateTask: (id: number, field: string, value: any) => Promise<void>;
     toggleTaskCompletion: (id: number) => Promise<void>;
     deleteTask: (id: number) => Promise<void>;
     addTask: (task: Partial<TaskUI>) => Promise<TaskUI | null>;
     addProject: (project: Partial<Project>) => Promise<{ data?: Project; error?: any }>;
+    addTaskProject: (taskId: number, projectId: number) => Promise<void>;
+    removeTaskProject: (taskId: number, projectId: number) => Promise<void>;
     addWikiPage: (page: any) => Promise<void>;
     updateWikiPage: (id: number, updates: any) => Promise<void>;
 }
@@ -42,7 +63,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // --- UI State ---
     const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
-    const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
     const [projectsCollapsed, setProjectsCollapsed] = useState<boolean>(false);
 
@@ -55,6 +75,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [taskStatuses, setTaskStatuses] = useState<TaskStatus[]>([]);
     const [taskPriorities, setTaskPriorities] = useState<TaskPriority[]>([]);
     const [taskTypes, setTaskTypes] = useState<TaskType[]>([]);
+    const [members, setMembers] = useState<ProjectMember[]>([]);
+    const [taskProjects, setTaskProjects] = useState<TaskProject[]>([]);
 
     const [loading, setLoading] = useState<boolean>(true);
 
@@ -72,14 +94,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 { data: wikisData },
                 { data: statusesData },
                 { data: prioritiesData },
-                { data: typesData }
+                { data: typesData },
+                { data: membersData },
+                { data: taskProjectsData }
             ] = await Promise.all([
                 supabase.from('projects').select('*').order('created_at', { ascending: true }),
                 supabase.from('tasks').select('*, activities(*)').order('created_at', { ascending: false }),
                 supabase.from('wikis').select('*').order('updated_at', { ascending: false }),
                 supabase.from('task_statuses').select('*').order('position', { ascending: true }),
                 supabase.from('task_priorities').select('*').order('position', { ascending: true }),
-                supabase.from('task_types').select('*').order('position', { ascending: true })
+                supabase.from('task_types').select('*').order('position', { ascending: true }),
+                supabase.from('project_members').select('*').order('position', { ascending: true }),
+                supabase.from('task_projects').select('*').order('position', { ascending: true })
             ]);
 
             setProjects(projectsData || []);
@@ -88,6 +114,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setTaskStatuses(statusesData || []);
             setTaskPriorities(prioritiesData || []);
             setTaskTypes(typesData || []);
+            setMembers(membersData || []);
+            setTaskProjects(taskProjectsData || []);
+
+            // Auto-initialize missing master data for existing projects
+            if (projectsData && projectsData.length > 0) {
+                for (const project of projectsData) {
+                    // Check and add missing priorities
+                    const hasPriorities = prioritiesData?.some(p => p.project_id === project.id);
+                    if (!hasPriorities) {
+                        console.log(`[Auto-init] Adding default priorities for project ${project.id}`);
+                        const defaultPriorities = [
+                            { project_id: project.id, name: '高', position: 1, color: 'rose' },
+                            { project_id: project.id, name: '中', position: 2, color: 'amber' },
+                            { project_id: project.id, name: '低', position: 3, color: 'blue' }
+                        ];
+                        const { data: newPriorities } = await supabase
+                            .from('task_priorities')
+                            .insert(defaultPriorities)
+                            .select();
+                        if (newPriorities) {
+                            setTaskPriorities(prev => [...prev, ...newPriorities]);
+                        }
+                    }
+
+                    // Check and add missing types
+                    const hasTypes = typesData?.some(t => t.project_id === project.id);
+                    if (!hasTypes) {
+                        console.log(`[Auto-init] Adding default types for project ${project.id}`);
+                        const defaultTypes = [
+                            { project_id: project.id, name: 'バグ', position: 1, icon: 'bug' },
+                            { project_id: project.id, name: 'タスク', position: 2, icon: 'check' },
+                            { project_id: project.id, name: '要望', position: 3, icon: 'lightbulb' },
+                            { project_id: project.id, name: 'その他', position: 4, icon: 'help-circle' }
+                        ];
+                        const { data: newTypes } = await supabase
+                            .from('task_types')
+                            .insert(defaultTypes)
+                            .select();
+                        if (newTypes) {
+                            setTaskTypes(prev => [...prev, ...newTypes]);
+                        }
+                    }
+                }
+            }
 
             // Set default active project
             if (projectsData && projectsData.length > 0 && !activeProjectId) {
@@ -120,14 +190,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setTaskStatuses(prev => [...prev, ...statusData]);
         }
 
+        // Create default priorities for the new project
+        const defaultPriorities = [
+            { project_id: data.id, name: '高', position: 1, color: 'rose' },
+            { project_id: data.id, name: '中', position: 2, color: 'amber' },
+            { project_id: data.id, name: '低', position: 3, color: 'blue' }
+        ];
+        const { data: priorityData } = await supabase.from('task_priorities').insert(defaultPriorities).select();
+        if (priorityData) {
+            setTaskPriorities(prev => [...prev, ...priorityData]);
+        }
+
+        // Create default types for the new project
+        const defaultTypes = [
+            { project_id: data.id, name: 'バグ', position: 1, icon: 'bug' },
+            { project_id: data.id, name: 'タスク', position: 2, icon: 'check' },
+            { project_id: data.id, name: '要望', position: 3, icon: 'lightbulb' },
+            { project_id: data.id, name: 'その他', position: 4, icon: 'help-circle' }
+        ];
+        const { data: typeData } = await supabase.from('task_types').insert(defaultTypes).select();
+        if (typeData) {
+            setTaskTypes(prev => [...prev, ...typeData]);
+        }
+
         return { data };
     };
 
     const addTask = async (newTask: Partial<TaskUI>): Promise<TaskUI | null> => {
         // Map UI fields to DB fields for status, priority, type
-        const status = taskStatuses.find(s => s.name === newTask.status && s.project_id === activeProjectId);
-        const priority = newTask.priority === '未選択' ? null : taskPriorities.find(p => p.name === newTask.priority && p.project_id === activeProjectId);
-        const type = newTask.type === '未選択' ? null : taskTypes.find(t => t.name === newTask.type && t.project_id === activeProjectId);
+        const status = taskStatuses.find(s => s.name === newTask.status);
+        const priority = newTask.priority === '未選択' ? null : taskPriorities.find(p => p.name === newTask.priority);
+        const type = newTask.type === '未選択' ? null : taskTypes.find(t => t.name === newTask.type);
+
+        console.log('[DEBUG] addTask mapping:', {
+            status: { input: newTask.status, found: status },
+            priority: { input: newTask.priority, found: priority },
+            type: { input: newTask.type, found: type }
+        });
 
         // Optimistic Update with Temp ID (TaskDB format)
         const tempId = Date.now();
@@ -143,6 +242,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             priority_id: priority?.id || null,
             type_id: type?.id || null,
             due_date: newTask.due || null,
+            assignee_id: newTask.assignees && newTask.assignees.length > 0 ? newTask.assignees[0] : null,
             completed: newTask.completed || false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -185,6 +285,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             type: taskTypes.find(t => t.id === data.type_id)?.name || '未選択',
         };
         setTasks(prev => prev.map(t => t.id === tempId ? data : t));
+
+        // タスク-プロジェクト関連を追加
+        const { data: taskProjectData, error: taskProjectError } = await supabase
+            .from('task_projects')
+            .insert([{ task_id: data.id, project_id: data.project_id, position: 0 }])
+            .select()
+            .single();
+
+        if (!taskProjectError && taskProjectData) {
+            setTaskProjects(prev => [...prev, taskProjectData]);
+        }
+
         return uiTask;
     };
 
@@ -194,38 +306,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updateTask = async (taskId: number, field: string, value: any): Promise<void> => {
         let dbField = field;
         let dbValue = value;
+        let uiUpdates: Record<string, any> = {};
 
         if (field === 'sectionId') dbField = 'section_id';
         if (field === 'due') dbField = 'due_date';
 
         if (field === 'status') {
             dbField = 'status_id';
-            const status = taskStatuses.find(s => s.name === value && s.project_id === activeProjectId);
+            const status = taskStatuses.find(s => s.name === value);
+            console.log('[DEBUG] Status update:', { value, taskStatuses, found: status });
             dbValue = status ? status.id : null;
+            uiUpdates = { status: value, status_id: dbValue };
         }
         if (field === 'priority') {
             dbField = 'priority_id';
-            if (value === '未選択') dbValue = null;
-            else {
-                const priority = taskPriorities.find(p => p.name === value && p.project_id === activeProjectId);
+            if (value === '未選択') {
+                dbValue = null;
+            } else {
+                const priority = taskPriorities.find(p => p.name === value);
+                console.log('[DEBUG] Priority update:', { value, taskPriorities, found: priority });
                 dbValue = priority ? priority.id : null;
             }
+            uiUpdates = { priority: value, priority_id: dbValue };
         }
         if (field === 'type') {
             dbField = 'type_id';
-            if (value === '未選択') dbValue = null;
-            else {
-                const type = taskTypes.find(t => t.name === value && t.project_id === activeProjectId);
+            if (value === '未選択') {
+                dbValue = null;
+            } else {
+                const type = taskTypes.find(t => t.name === value);
+                console.log('[DEBUG] Type update:', { value, taskTypes, found: type });
                 dbValue = type ? type.id : null;
             }
+            uiUpdates = { type: value, type_id: dbValue };
         }
         if (field === 'assignees') {
-            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, [field]: value } : t));
-            return;
+            // assigneesは配列だが、DBは単一のassignee_idなので最初の要素を使用
+            dbField = 'assignee_id';
+            dbValue = value && value.length > 0 ? value[0] : null;
+            uiUpdates = { assignees: value, assignee_id: dbValue };
+        }
+
+        // If no special handling, just update the field directly
+        if (Object.keys(uiUpdates).length === 0) {
+            uiUpdates = { [field]: value };
+            if (dbField !== field) {
+                uiUpdates[dbField] = dbValue;
+            }
         }
 
         // 1. Optimistic update (Immediate UI feedback)
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, [field]: value, [dbField]: dbValue } : t));
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...uiUpdates } : t));
 
         // 2. DB Update (Debounced for text fields)
         const isTextField = ['title', 'description'].includes(field);
@@ -300,13 +431,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
+    const addTaskProject = async (taskId: number, projectId: number): Promise<void> => {
+        // 既存の関連を取得
+        const existingRelations = taskProjects.filter(tp => tp.task_id === taskId);
+        const position = existingRelations.length;
+
+        // 楽観的更新
+        const newRelation: TaskProject = {
+            id: Date.now(),
+            task_id: taskId,
+            project_id: projectId,
+            position,
+            created_at: new Date().toISOString()
+        };
+        setTaskProjects(prev => [...prev, newRelation]);
+
+        // DB更新
+        const { data, error } = await supabase
+            .from('task_projects')
+            .insert([{ task_id: taskId, project_id: projectId, position }])
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error adding task project:', error);
+            setTaskProjects(prev => prev.filter(tp => tp.id !== newRelation.id));
+            return;
+        }
+
+        // 実データで置き換え
+        setTaskProjects(prev => prev.map(tp => tp.id === newRelation.id ? data : tp));
+
+        // 最初のプロジェクトの場合、tasks.project_idも更新
+        if (position === 0) {
+            await supabase.from('tasks').update({ project_id: projectId }).eq('id', taskId);
+            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, project_id: projectId } : t));
+        }
+    };
+
+    const removeTaskProject = async (taskId: number, projectId: number): Promise<void> => {
+        // 楽観的更新
+        setTaskProjects(prev => prev.filter(tp => !(tp.task_id === taskId && tp.project_id === projectId)));
+
+        // DB更新
+        const { error } = await supabase
+            .from('task_projects')
+            .delete()
+            .eq('task_id', taskId)
+            .eq('project_id', projectId);
+
+        if (error) {
+            console.error('Error removing task project:', error);
+            fetchData(); // エラー時は再取得
+            return;
+        }
+
+        // 残りの関連を取得して、最初のプロジェクトをtasks.project_idに設定
+        const remainingRelations = taskProjects
+            .filter(tp => tp.task_id === taskId && tp.project_id !== projectId)
+            .sort((a, b) => a.position - b.position);
+
+        if (remainingRelations.length > 0) {
+            await supabase.from('tasks').update({ project_id: remainingRelations[0].project_id }).eq('id', taskId);
+            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, project_id: remainingRelations[0].project_id } : t));
+        }
+    };
+
     // --- Derived Data ---
     const currentProject = projects.find(p => p.id === activeProjectId) || null;
 
-    // Filter master data for current project
-    const currentStatuses = taskStatuses.filter(s => s.project_id === activeProjectId);
-    const currentPriorities = taskPriorities.filter(p => p.project_id === activeProjectId);
-    const currentTypes = taskTypes.filter(t => t.project_id === activeProjectId);
+    // Filter master data for current project (now global, not filtered)
+    const currentStatuses = taskStatuses;
+    const currentPriorities = taskPriorities;
+    const currentTypes = taskTypes;
+    const currentMembers = members;
 
     // Compat: Map sections from statuses
     // If no statuses exist (fresh project), provide defaults locally or wait for seed
@@ -320,8 +518,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Derived tasks with compatibility mapping
     const currentProjectTasks = tasks
-        .filter(t => t.project_id === activeProjectId && !t.parent_id)
+        .filter(t => {
+            // タスク-プロジェクト関連から現在のプロジェクトに紐付いているタスクを取得
+            const taskProjectRelations = taskProjects.filter(tp => tp.task_id === t.id);
+            return taskProjectRelations.some(tp => tp.project_id === activeProjectId) && !t.parent_id;
+        })
         .map(t => {
+            // タスクに紐付いているプロジェクトIDの配列を取得
+            const taskProjectRelations = taskProjects
+                .filter(tp => tp.task_id === t.id)
+                .sort((a, b) => a.position - b.position);
+            const projectIds = taskProjectRelations.map(tp => tp.project_id);
+
             // Map IDs to names for UI display
             const status = taskStatuses.find(s => s.id === t.status_id);
             const priority = taskPriorities.find(p => p.id === t.priority_id);
@@ -329,7 +537,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             return {
                 ...t,
-                projectIds: [t.project_id], // Map back to array
+                projectIds, // 複数プロジェクトIDの配列
                 sectionId: t.section_id?.toString() || sections[0].id, // Map snake_case to camelCase
                 due: t.due_date, // Map due_date to due
                 assignees: [], // TODO: Implement assignee mapping
@@ -371,8 +579,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Theme
-    const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
+
 
     // Convert all tasks to UI format for context
     const tasksUI = useMemo(() => {
@@ -386,7 +593,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 projectIds: [t.project_id],
                 sectionId: t.section_id?.toString() || '1',
                 due: t.due_date,
-                assignees: [],
+                assignees: t.assignee_id ? [t.assignee_id] : [],
                 status: status?.name || '未対応',
                 priority: priority?.name || '未選択',
                 type: type?.name || '未選択',
@@ -403,6 +610,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             taskStatuses,
             taskPriorities,
             taskTypes,
+            members,
+            taskProjects,
 
             // Compat exposed props
             sections,
@@ -412,6 +621,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             currentStatuses,
             currentPriorities,
             currentTypes,
+            currentMembers,
 
             activeProjectId,
             setActiveProjectId,
@@ -421,20 +631,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsMobileMenuOpen,
             projectsCollapsed,
             setProjectsCollapsed,
-            isDarkMode,
-            toggleDarkMode,
 
             updateTask,
             toggleTaskCompletion,
             deleteTask,
             addTask,
             addProject,
+            addTaskProject,
+            removeTaskProject,
             addWikiPage,
             updateWikiPage
         }}>
-            <div className={isDarkMode ? 'dark' : ''}>
-                {children}
-            </div>
+            {children}
         </AppContext.Provider>
 
     );

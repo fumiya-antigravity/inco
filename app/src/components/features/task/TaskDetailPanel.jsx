@@ -6,10 +6,10 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import {
-    TypeSelector, PrioritySelector, StatusSelector, SectionSelector, CompletionCheckButton, AssigneeSelector
+    TypeSelector, PrioritySelector, StatusSelector, SectionSelector, CompletionCheckButton, AssigneeSelector, ProjectSelector
 } from './SharedComponents';
 import {
-    DetailRow, SubtaskItem, SubtaskInput, ActivityItem, CommentInput
+    SubtaskItem, SubtaskInput, ActivityItem, CommentInput
 } from './TaskDetailComponents';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -122,10 +122,7 @@ const TaskDetailPanel = () => {
 
     // Check values for styling
     const assignees = selectedTask.assignees || [];
-    const hasAssignee = assignees.length > 0;
-    const hasDueDate = !!selectedTask.due;
     const taskProjects = selectedTask.projectIds || [];
-    const hasProject = taskProjects.length > 0;
     const subtasks = selectedTask.subtasks || [];
     const activities = selectedTask.activities || [];
 
@@ -140,16 +137,16 @@ const TaskDetailPanel = () => {
             <div
                 ref={panelRef}
                 className="
-                fixed top-14 bottom-0 right-0 z-40 
-                w-full sm:w-[380px] md:w-[450px] lg:w-[550px]
-                bg-white dark:bg-zinc-900 
-                border-l border-slate-200 dark:border-zinc-800 
-                shadow-2xl rounded-tl-2xl
-                flex flex-col
-                animate-in slide-in-from-right duration-200
-            ">
+ fixed top-14 bottom-0 right-0 z-40 
+ w-full sm:w-[380px] md:w-[450px] lg:w-[550px]
+ bg-white 
+ border-l border-slate-200 
+ shadow-2xl rounded-tl-2xl
+ flex flex-col
+ animate-in slide-in-from-right duration-200
+ ">
                 {/* Header */}
-                <div className="h-16 flex items-center justify-between px-8 border-b border-slate-100 dark:border-zinc-800 flex-shrink-0 bg-white dark:bg-zinc-900 rounded-tl-2xl">
+                <div className="h-16 flex items-center justify-between px-8 border-b border-slate-100 flex-shrink-0 bg-white rounded-tl-2xl">
                     <div className="flex items-center gap-4">
                         {/* New Completion Button (Simple Circle Check) */}
                         <CompletionCheckButton
@@ -158,10 +155,10 @@ const TaskDetailPanel = () => {
                             size="lg"
                         />
 
-                        <div className="h-4 w-px bg-slate-200 dark:bg-zinc-700"></div>
+                        <div className="h-4 w-px bg-slate-200 "></div>
 
-                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                            <span className="font-mono bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded-md">{selectedTask.key}</span>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 ">
+                            <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded-md">{selectedTask.key}</span>
                             <span className="hidden sm:inline">作成日: {new Date().toLocaleDateString()}</span>
                         </div>
                     </div>
@@ -174,7 +171,7 @@ const TaskDetailPanel = () => {
                                 navigator.clipboard.writeText(url);
                                 alert('リンクをコピーしました'); // Simple feedback
                             }}
-                            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                            className="p-2 text-slate-400 hover:text-slate-600 :text-slate-300 rounded-full hover:bg-slate-100 :bg-zinc-800 transition-colors"
                             title="リンクをコピー"
                         >
                             <LinkIcon size={20} />
@@ -184,7 +181,7 @@ const TaskDetailPanel = () => {
                         <div className="relative">
                             <button
                                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                                className="p-2 text-slate-400 hover:text-slate-600 :text-slate-300 rounded-full hover:bg-slate-100 :bg-zinc-800 transition-colors"
                             >
                                 <MoreHorizontal size={20} />
                             </button>
@@ -193,7 +190,7 @@ const TaskDetailPanel = () => {
                             {isMenuOpen && (
                                 <>
                                     <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
-                                    <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-zinc-800 rounded-xl shadow-xl border border-slate-100 dark:border-zinc-700 z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right">
                                         <button
                                             onClick={() => {
                                                 const newTask = {
@@ -212,7 +209,7 @@ const TaskDetailPanel = () => {
                                                 setIsMenuOpen(false);
                                                 alert('タスクをコピーしました');
                                             }}
-                                            className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-700/50 flex items-center gap-2 transition-colors"
+                                            className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 :bg-zinc-700/50 flex items-center gap-2 transition-colors"
                                         >
                                             <Copy size={16} /> タスクを複製
                                         </button>
@@ -224,7 +221,7 @@ const TaskDetailPanel = () => {
                                                 }
                                                 setIsMenuOpen(false);
                                             }}
-                                            className="w-full text-left px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-2 transition-colors border-t border-slate-100 dark:border-zinc-700/50"
+                                            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 :bg-red-900/10 flex items-center gap-2 transition-colors border-t border-slate-100 /50"
                                         >
                                             <Trash2 size={16} /> タスクを削除
                                         </button>
@@ -235,7 +232,7 @@ const TaskDetailPanel = () => {
 
                         <button
                             onClick={closeDetailPanel}
-                            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors ml-1"
+                            className="p-2 text-slate-400 hover:text-slate-600 :text-slate-300 rounded-full hover:bg-slate-100 :bg-zinc-800 transition-colors ml-1"
                         >
                             <ChevronsRight size={22} />
                         </button>
@@ -243,14 +240,14 @@ const TaskDetailPanel = () => {
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto p-8 md:p-10 bg-white dark:bg-zinc-900">
+                <div className="flex-1 overflow-y-auto p-8 md:p-10 bg-white ">
                     {/* Title Input */}
                     <div className="mb-8 group">
                         <textarea
                             ref={titleRef}
                             value={selectedTask.title}
                             onChange={(e) => updateTask(selectedTask.id, 'title', e.target.value)}
-                            className="w-full text-2xl md:text-3xl font-bold text-slate-800 dark:text-slate-100 bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 rounded-lg px-4 py-3 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none resize-none placeholder-slate-300 transition-all leading-tight"
+                            className="w-full text-2xl md:text-3xl font-bold text-slate-800 bg-transparent border border-transparent hover:border-slate-200 :border-zinc-700 rounded-lg px-4 py-3 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none resize-none placeholder-slate-300 transition-all leading-tight"
                             placeholder="タスク名を入力"
                             rows={1}
                             onInput={(e) => {
@@ -261,94 +258,95 @@ const TaskDetailPanel = () => {
                     </div>
 
                     {/* Properties Grid - Center aligned */}
-                    <div className="grid grid-cols-[auto_1fr] gap-y-3 gap-x-6 mb-12 text-sm">
-
-                        {/* Assignee (Multiple) */}
-                        <DetailRow
-                            icon={User}
-                            label="担当者"
-                            hasValue={hasAssignee}
-                            onAdd={() => alert('未実装')}
-                        >
-                            <AssigneeSelector task={selectedTask} isDetailView={true} />
-                        </DetailRow>
+                    {/* Properties - Simple Layout */}
+                    <div className="space-y-4 mb-12">
+                        {/* Assignee */}
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 text-slate-500 text-sm w-28 flex-shrink-0">
+                                <User size={18} />
+                                <span>担当者</span>
+                            </div>
+                            <div className="flex-1">
+                                <AssigneeSelector task={selectedTask} />
+                            </div>
+                        </div>
 
                         {/* Due Date */}
-                        <DetailRow
-                            icon={Calendar}
-                            label="期限日"
-                            hasValue={hasDueDate}
-                            onClear={() => updateTask(selectedTask.id, 'due', '')}
-                        >
-                            {hasDueDate ? (
-                                <span>{selectedTask.due}</span>
-                            ) : (
-                                <span>未設定</span>
-                            )}
-                        </DetailRow>
-
-                        {/* Project (Multiple) */}
-                        <DetailRow
-                            icon={Briefcase}
-                            label="プロジェクト"
-                            hasValue={hasProject}
-                            onAdd={() => alert('未実装')}
-                        >
-                            <div className="flex flex-wrap gap-1.5 py-1">
-                                {taskProjects.map(pid => {
-                                    const p = projects.find(prj => prj.id === pid);
-                                    return p ? (
-                                        <div key={pid} className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-700 px-2 py-0.5 rounded text-xs group/tag">
-                                            <span className="font-medium">{p.name}</span>
-                                        </div>
-                                    ) : null;
-                                })}
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 text-slate-500 text-sm w-28 flex-shrink-0">
+                                <Calendar size={18} />
+                                <span>期限日</span>
                             </div>
-                        </DetailRow>
+                            <div className="flex-1">
+                                <span className="text-slate-600 text-sm">{selectedTask.due || '未設定'}</span>
+                            </div>
+                        </div>
+
+                        {/* Project */}
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 text-slate-500 text-sm w-28 flex-shrink-0">
+                                <Briefcase size={18} />
+                                <span>プロジェクト</span>
+                            </div>
+                            <div className="flex-1">
+                                <ProjectSelector task={selectedTask} />
+                            </div>
+                        </div>
 
                         {/* Section */}
-                        <div className="text-slate-500 dark:text-slate-400 flex items-center gap-2 h-9">
-                            <Columns size={18} /> セクション
-                        </div>
-                        <div className="py-1">
-                            <SectionSelector task={selectedTask} isDetailView={true} />
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 text-slate-500 text-sm w-28 flex-shrink-0">
+                                <Columns size={18} />
+                                <span>セクション</span>
+                            </div>
+                            <div className="flex-1">
+                                <SectionSelector task={selectedTask} />
+                            </div>
                         </div>
 
-                        {/* Status (MOVED HERE) */}
-                        <div className="text-slate-500 dark:text-slate-400 flex items-center gap-2 h-9">
-                            <CheckCircle2 size={18} /> ステータス
-                        </div>
-                        <div className="py-1">
-                            <StatusSelector task={selectedTask} isDetailView={true} />
+                        {/* Status */}
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 text-slate-500 text-sm w-28 flex-shrink-0">
+                                <CheckCircle2 size={18} />
+                                <span>ステータス</span>
+                            </div>
+                            <div className="flex-1">
+                                <StatusSelector task={selectedTask} />
+                            </div>
                         </div>
 
                         {/* Priority */}
-                        <div className="text-slate-500 dark:text-slate-400 flex items-center gap-2 h-9">
-                            <AlertCircle size={18} /> 優先度
-                        </div>
-                        <div className="py-1">
-                            <PrioritySelector task={selectedTask} isDetailView={true} />
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 text-slate-500 text-sm w-28 flex-shrink-0">
+                                <AlertCircle size={18} />
+                                <span>優先度</span>
+                            </div>
+                            <div className="flex-1">
+                                <PrioritySelector task={selectedTask} />
+                            </div>
                         </div>
 
                         {/* Type */}
-                        <div className="text-slate-500 dark:text-slate-400 flex items-center gap-2 h-9">
-                            <FileQuestion size={18} /> 種別
-                        </div>
-                        <div className="py-1">
-                            <TypeSelector task={selectedTask} isDetailView={true} />
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 text-slate-500 text-sm w-28 flex-shrink-0">
+                                <FileQuestion size={18} />
+                                <span>種別</span>
+                            </div>
+                            <div className="flex-1">
+                                <TypeSelector task={selectedTask} />
+                            </div>
                         </div>
                     </div>
-
                     {/* Description */}
                     <div className="mb-12">
-                        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-bold text-sm mb-2">
+                        <div className="flex items-center gap-2 text-slate-500 font-bold text-sm mb-2">
                             <AlignLeft size={16} /> 詳細
                         </div>
-                        <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-slate-100 dark:border-zinc-800 min-h-[150px] group focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-all">
+                        <div className="bg-slate-50 /50 rounded-xl p-4 border border-slate-100 min-h-[150px] group focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-all">
                             <textarea
                                 value={selectedTask.description || ''}
                                 onChange={(e) => updateTask(selectedTask.id, 'description', e.target.value)}
-                                className="w-full h-full bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-sm leading-relaxed resize-none min-h-[120px]"
+                                className="w-full h-full bg-transparent border-none outline-none text-slate-700 text-sm leading-relaxed resize-none min-h-[120px]"
                                 placeholder="詳細を入力してください..."
                             />
                         </div>
@@ -356,11 +354,11 @@ const TaskDetailPanel = () => {
 
                     {/* Subtasks (Enhanced) */}
                     <div className="mb-12">
-                        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-bold text-sm mb-2 group">
+                        <div className="flex items-center gap-2 text-slate-500 font-bold text-sm mb-2 group">
                             <ListTodo size={16} /> サブタスク
                             <button
                                 onClick={() => setIsCreatingSubtask(true)}
-                                className="ml-2 p-0.5 rounded hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-400 hover:text-emerald-600 transition-colors"
+                                className="ml-2 p-0.5 rounded hover:bg-slate-200 :bg-zinc-700 text-slate-400 hover:text-emerald-600 transition-colors"
                                 title="サブタスクを追加"
                             >
                                 <Plus size={14} />
@@ -385,9 +383,9 @@ const TaskDetailPanel = () => {
                     </div>
 
                     {/* Activity & Comments (Enhanced) */}
-                    <div className="bg-slate-50 dark:bg-zinc-800/30 -mx-8 -mb-10 p-8 border-t border-slate-100 dark:border-zinc-800">
+                    <div className="bg-slate-50 /30 -mx-8 -mb-10 p-8 border-t border-slate-100 ">
                         <div className="flex items-center justify-between mb-4">
-                            <div className="text-slate-500 dark:text-slate-400 font-bold text-sm flex items-center gap-2">
+                            <div className="text-slate-500 font-bold text-sm flex items-center gap-2">
                                 <MessageSquare size={16} /> アクティビティ
                             </div>
                         </div>
@@ -396,7 +394,7 @@ const TaskDetailPanel = () => {
                         <CommentInput onPost={(text) => addComment(selectedTask.id, text)} />
 
                         {/* Timeline */}
-                        <div className="mt-8 space-y-6 relative before:absolute before:left-[15px] before:top-4 before:bottom-0 before:w-0.5 before:bg-slate-200 dark:before:bg-zinc-700">
+                        <div className="mt-8 space-y-6 relative before:absolute before:left-[15px] before:top-4 before:bottom-0 before:w-0.5 before:bg-slate-200 :bg-zinc-700">
                             {sortedActivities.map((activity, index) => (
                                 <div key={activity.id} className="relative z-10">
                                     <ActivityItem

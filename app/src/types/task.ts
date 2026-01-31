@@ -11,6 +11,7 @@ export interface TaskDB {
     priority_id: number | null;
     type_id: number | null;
     due_date: string | null;
+    assignee_id: string | null;
     completed: boolean;
     created_at: string;
     updated_at: string;
