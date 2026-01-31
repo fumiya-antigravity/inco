@@ -55,6 +55,9 @@ interface AppContextType {
     removeTaskProject: (taskId: number, projectId: number) => Promise<void>;
     addWikiPage: (page: any) => Promise<void>;
     updateWikiPage: (id: number, updates: any) => Promise<void>;
+    addSection: (section: Partial<Section>) => Promise<void>;
+    updateSection: (id: string, title: string) => Promise<void>;
+    deleteSection: (id: string, destSectionId?: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -77,6 +80,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [taskTypes, setTaskTypes] = useState<TaskType[]>([]);
     const [members, setMembers] = useState<ProjectMember[]>([]);
     const [taskProjects, setTaskProjects] = useState<TaskProject[]>([]);
+    const [sections, setSections] = useState<Section[]>([]); // New State
 
     const [loading, setLoading] = useState<boolean>(true);
 
@@ -96,7 +100,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 { data: prioritiesData },
                 { data: typesData },
                 { data: membersData },
-                { data: taskProjectsData }
+                { data: taskProjectsData },
+                { data: sectionsData }
             ] = await Promise.all([
                 supabase.from('projects').select('*').order('created_at', { ascending: true }),
                 supabase.from('tasks').select('*, activities(*)').order('created_at', { ascending: false }),
@@ -105,7 +110,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 supabase.from('task_priorities').select('*').order('position', { ascending: true }),
                 supabase.from('task_types').select('*').order('position', { ascending: true }),
                 supabase.from('project_members').select('*').order('position', { ascending: true }),
-                supabase.from('task_projects').select('*').order('position', { ascending: true })
+                supabase.from('task_projects').select('*').order('position', { ascending: true }),
+                supabase.from('sections').select('*').order('order_index', { ascending: true })
             ]);
 
             setProjects(projectsData || []);
@@ -116,6 +122,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setTaskTypes(typesData || []);
             setMembers(membersData || []);
             setTaskProjects(taskProjectsData || []);
+            setSections(sectionsData || []);
 
             // Auto-initialize missing master data for existing projects
             if (projectsData && projectsData.length > 0) {
@@ -497,6 +504,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
+    // --- Section Methods ---
+    const addSection = async (section: Partial<Section>) => {
+        const { data, error } = await supabase.from('sections').insert([section]).select().single();
+        if (data) {
+            setSections(prev => [...prev, data]);
+        }
+    };
+
+    const updateSection = async (id: string, title: string) => {
+        const { error } = await supabase.from('sections').update({ title }).eq('id', id);
+        if (!error) {
+            setSections(prev => prev.map(s => s.id === id ? { ...s, title } : s));
+        }
+    };
+
+    const deleteSection = async (id: string, destSectionId?: string) => {
+        // Optimistic
+        if (destSectionId) {
+            setTasks(prev => prev.map(t => t.section_id?.toString() === id ? { ...t, section_id: parseInt(destSectionId) } : t));
+            await supabase.from('tasks').update({ section_id: destSectionId }).eq('section_id', id);
+        }
+
+        await supabase.from('sections').delete().eq('id', id);
+        setSections(prev => prev.filter(s => s.id !== id));
+    };
+
     // --- Derived Data ---
     const currentProject = projects.find(p => p.id === activeProjectId) || null;
 
@@ -506,15 +539,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const currentTypes = taskTypes;
     const currentMembers = members;
 
-    // Compat: Map sections from statuses
-    // If no statuses exist (fresh project), provide defaults locally or wait for seed
-    const sections = currentStatuses.length > 0
-        ? currentStatuses.map(s => ({ id: s.id.toString(), title: s.name, color: s.color }))
-        : [
-            { id: '1', title: '未対応' },
-            { id: '2', title: '処理中' },
-            { id: '3', title: '完了' }
-        ]; // Fallback
+    // Filter sections for current project
+    const currentSections = sections.filter(s => s.project_id === activeProjectId);
+
+    // Fallback if no sections (usually for new projects or until migrated)
+    const effectiveSections = currentSections.length > 0
+        ? currentSections
+        : []; // For now, let's assume if empty, it's empty. UI handles empty state or we can verify.
 
     // Derived tasks with compatibility mapping
     const currentProjectTasks = tasks
@@ -538,7 +569,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return {
                 ...t,
                 projectIds, // 複数プロジェクトIDの配列
-                sectionId: t.section_id?.toString() || sections[0].id, // Map snake_case to camelCase
+                sectionId: t.section_id?.toString() || (currentSections[0]?.id || '1'), // Use real section or fallback
                 due: t.due_date, // Map due_date to due
                 assignees: [], // TODO: Implement assignee mapping
                 // Add UI string fields
@@ -614,7 +645,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             taskProjects,
 
             // Compat exposed props
-            sections,
+            // Compat exposed props
+            sections: effectiveSections,
 
             currentProject,
             currentProjectTasks,
@@ -640,7 +672,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             addTaskProject,
             removeTaskProject,
             addWikiPage,
-            updateWikiPage
+            updateWikiPage,
+            addSection,
+            updateSection,
+            deleteSection
         }}>
             {children}
         </AppContext.Provider>

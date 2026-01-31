@@ -10,6 +10,9 @@ export interface Project {
 
 export interface Section {
     id: string;
+    project_id: number;
     title: string;
+    order_index: number;
     color?: string;
+    created_at?: string;
 }
