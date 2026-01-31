@@ -120,7 +120,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             try {
                 const { data, error } = await supabase.from('sections').select('*').order('order_index', { ascending: true });
                 if (error) throw error;
-                sectionsData = data || [];
+                // Normalize IDs to string
+                sectionsData = (data || []).map(s => ({ ...s, id: s.id.toString() }));
                 setSectionsTableMissing(false);
             } catch (err) {
                 console.warn('Sections table fetch failed (likely missing migration):', err);
@@ -528,7 +529,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             console.error('Error adding section:', error);
             alert("セクションの作成に失敗しました。");
         } else if (data) {
-            setSections(prev => [...prev, data]);
+            setSections(prev => [...prev, { ...data, id: data.id.toString() }]);
         }
     };
 
@@ -542,7 +543,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             console.error('Error updating section:', error);
             alert("セクションの更新に失敗しました。");
         } else {
-            setSections(prev => prev.map(s => s.id === id ? { ...s, title } : s));
+            setSections(prev => prev.map(s => String(s.id) === String(id) ? { ...s, title } : s));
         }
     };
 
@@ -571,7 +572,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             alert("セクションの削除に失敗しました。");
             fetchData(); // Rollback optimistic updates
         } else {
-            setSections(prev => prev.filter(s => s.id !== id));
+            setSections(prev => prev.filter(s => String(s.id) !== String(id)));
         }
     };
 
@@ -670,7 +671,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const { data: newSections } = await supabase.from('sections').insert(sectionsToCreate).select();
 
                 if (newSections) {
-                    setSections(prev => [...prev, ...newSections]);
+                    const sectionsWithStrId = newSections.map(s => ({ ...s, id: s.id.toString() }));
+                    setSections(prev => [...prev, ...sectionsWithStrId]);
 
                     // Migrate Tasks: Map tasks to sections based on status name
                     // This ensures tasks don't all pile up in the first section
