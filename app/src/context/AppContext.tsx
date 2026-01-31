@@ -519,28 +519,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // --- Section Methods ---
     const addSection = async (section: Partial<Section>) => {
+        if (sectionsTableMissing) {
+            alert("セクション機能を使用するにはデータベースの更新が必要です。");
+            return;
+        }
         const { data, error } = await supabase.from('sections').insert([section]).select().single();
-        if (data) {
+        if (error) {
+            console.error('Error adding section:', error);
+            alert("セクションの作成に失敗しました。");
+        } else if (data) {
             setSections(prev => [...prev, data]);
         }
     };
 
     const updateSection = async (id: string, title: string) => {
+        if (sectionsTableMissing) {
+            alert("セクション機能を使用するにはデータベースの更新が必要です。");
+            return;
+        }
         const { error } = await supabase.from('sections').update({ title }).eq('id', id);
-        if (!error) {
+        if (error) {
+            console.error('Error updating section:', error);
+            alert("セクションの更新に失敗しました。");
+        } else {
             setSections(prev => prev.map(s => s.id === id ? { ...s, title } : s));
         }
     };
 
     const deleteSection = async (id: string, destSectionId?: string) => {
+        if (sectionsTableMissing) {
+            alert("セクション機能を使用するにはデータベースの更新が必要です。");
+            return;
+        }
+
         // Optimistic
         if (destSectionId) {
             setTasks(prev => prev.map(t => t.section_id?.toString() === id ? { ...t, section_id: parseInt(destSectionId) } : t));
-            await supabase.from('tasks').update({ section_id: destSectionId }).eq('section_id', id);
+            const { error } = await supabase.from('tasks').update({ section_id: destSectionId }).eq('section_id', id);
+            if (error) {
+                console.error('Error moving tasks during section delete:', error);
+                // Continue to delete section? Probably risky.
+                alert("タスクの移動に失敗しました。データベースが最新でない可能性があります。");
+                fetchData();
+                return;
+            }
         }
 
-        await supabase.from('sections').delete().eq('id', id);
-        setSections(prev => prev.filter(s => s.id !== id));
+        const { error } = await supabase.from('sections').delete().eq('id', id);
+        if (error) {
+            console.error('Error deleting section:', error);
+            alert("セクションの削除に失敗しました。");
+            fetchData(); // Rollback optimistic updates
+        } else {
+            setSections(prev => prev.filter(s => s.id !== id));
+        }
     };
 
     // --- Derived Data ---
