@@ -672,26 +672,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (newSections) {
                     setSections(prev => [...prev, ...newSections]);
 
-                    // Update existing tasks to point to these new sections
-                    // Assuming basic mapping by order or name if possible, or just dump all in first section
-                    // For better UX, let's try to map by name if possible, else first section.
-                    // However, we can't easily do complex mapping here without iterating all tasks.
-                    // Simple approach: Update all tasks in this project to the first section if they have invalid section_id
-                    // But tasks currently have section_id as '1', '2' (from status id string).
-                    // We should probably leave task migration to a background script or lazy update.
-                    // But to verify "sections appear", creating them is enough.
-                    // The UI mapping `sectionId: t.section_id?.toString() || (currentSections[0]?.id || '1')`
-                    // will pick up the new sections if we update the state.
+                    // Migrate Tasks: Map tasks to sections based on status name
+                    // This ensures tasks don't all pile up in the first section
+                    const updatesPromises = newSections.map(async (section) => {
+                        const matchingStatus = currentStatuses.find(s => s.name === section.title);
+                        if (matchingStatus) {
+                            // Update tasks in DB
+                            await supabase
+                                .from('tasks')
+                                .update({ section_id: section.id })
+                                .eq('status_id', matchingStatus.id);
 
-                    // Actually, we should try to update tasks.section_id to the new section IDs.
-                    // This is complex to do efficiently here.
-                    // Let's rely on the fallback `currentSections[0]?.id` in `currentProjectTasks` derivation
-                    // to put tasks in the first new section at least.
+                            // Update local state (optimistic-ish)
+                            setTasks(prev => prev.map(t =>
+                                t.status_id === matchingStatus.id ? { ...t, section_id: section.id, sectionId: section.id.toString() } : t
+                            ));
+                        }
+                    });
+
+                    await Promise.all(updatesPromises);
                 }
             }
         };
         seedDefaults();
-    }, [activeProjectId, currentStatuses.length, currentSections.length, loading, sectionsTableMissing]);
+    }, [activeProjectId, currentStatuses, currentSections.length, loading, sectionsTableMissing]);
 
     // Resize Listener
     useEffect(() => {
