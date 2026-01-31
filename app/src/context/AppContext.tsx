@@ -81,6 +81,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [members, setMembers] = useState<ProjectMember[]>([]);
     const [taskProjects, setTaskProjects] = useState<TaskProject[]>([]);
     const [sections, setSections] = useState<Section[]>([]); // New State
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [sectionsTableMissing, setSectionsTableMissing] = useState<boolean>(false);
+
 
     const [loading, setLoading] = useState<boolean>(true);
 
@@ -100,8 +103,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 { data: prioritiesData },
                 { data: typesData },
                 { data: membersData },
-                { data: taskProjectsData },
-                { data: sectionsData }
+                { data: taskProjectsData }
             ] = await Promise.all([
                 supabase.from('projects').select('*').order('created_at', { ascending: true }),
                 supabase.from('tasks').select('*, activities(*)').order('created_at', { ascending: false }),
@@ -110,9 +112,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 supabase.from('task_priorities').select('*').order('position', { ascending: true }),
                 supabase.from('task_types').select('*').order('position', { ascending: true }),
                 supabase.from('project_members').select('*').order('position', { ascending: true }),
-                supabase.from('task_projects').select('*').order('position', { ascending: true }),
-                supabase.from('sections').select('*').order('order_index', { ascending: true })
+                supabase.from('task_projects').select('*').order('position', { ascending: true })
             ]);
+
+            // Separate try-catch for sections as the table might not exist yet
+            let sectionsData: Section[] = [];
+            try {
+                const { data, error } = await supabase.from('sections').select('*').order('order_index', { ascending: true });
+                if (error) throw error;
+                sectionsData = data || [];
+                setSectionsTableMissing(false);
+            } catch (err) {
+                console.warn('Sections table fetch failed (likely missing migration):', err);
+                setSectionsTableMissing(true);
+            }
 
             setProjects(projectsData || []);
             setTasks(tasksData || []);
@@ -543,9 +556,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const currentSections = sections.filter(s => s.project_id === activeProjectId);
 
     // Fallback if no sections (usually for new projects or until migrated)
-    const effectiveSections = currentSections.length > 0
+    // Fallback if no sections (usually for new projects or until migrated, OR if table missing)
+    // If sections table is working but empty, we seed in useEffect.
+    // If sections table is Missing, we must simulate sections from Statuses to unblock the UI.
+    const effectiveSections = (sections.length > 0)
         ? currentSections
-        : []; // For now, let's assume if empty, it's empty. UI handles empty state or we can verify.
+        : currentStatuses.map(s => ({
+            id: s.id.toString(), // Use status ID as section ID for compatibility
+            project_id: s.project_id,
+            title: s.name,
+            order_index: s.position,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            created_at: (s as any).created_at
+        } as Section));
 
     // Derived tasks with compatibility mapping
     const currentProjectTasks = tasks
@@ -569,7 +592,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return {
                 ...t,
                 projectIds, // 複数プロジェクトIDの配列
-                sectionId: t.section_id?.toString() || (currentSections[0]?.id || '1'), // Use real section or fallback
+                sectionId: t.section_id?.toString() || (effectiveSections[0]?.id || '1'), // Use effective section or fallback
                 due: t.due_date, // Map due_date to due
                 assignees: [], // TODO: Implement assignee mapping
                 // Add UI string fields
@@ -636,7 +659,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         };
         seedDefaults();
-    }, [activeProjectId, currentStatuses.length, currentSections.length, loading]);
+    }, [activeProjectId, currentStatuses.length, currentSections.length, loading, sectionsTableMissing]);
 
     // Resize Listener
     useEffect(() => {
